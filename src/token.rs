@@ -1,10 +1,5 @@
 #[derive(Clone, Debug)]
 pub enum Token {
-    OR,             // or
-    AND,            // and
-    NOT,            // not
-    IS,             // is
-    IN,             // in
     EQ,             // =
     EQEQ,           // ==
     NEQ,            // !=
@@ -23,6 +18,21 @@ pub enum Token {
     XOR,            // ^
     AMP,            // &
     BAR,            // |
+    LPAREN,         // (
+    RPAREN,         // )
+    LBRACE,         // {
+    RBRACE,         // }
+    LBRACKET,       // [
+    RBRACKET,       // ]
+    PERIOD,         // .
+    COMMA,          // ,
+    COLON,          // :
+    NEWLINE,        // \n
+    OR,             // or
+    AND,            // and
+    NOT,            // not
+    IS,             // is
+    IN,             // in
     NONE,           // None
     BREAK,          // break
     CONTINUE,       // continue
@@ -37,22 +47,12 @@ pub enum Token {
     FOR,            // for
     WHILE,          // while
     DEF,            // def
-    LPAREN,         // (
-    RPAREN,         // )
-    LBRACE,         // {
-    RBRACE,         // }
-    LBRACKET,       // [
-    RBRACKET,       // ]
-    PERIOD,         // .
-    COMMA,          // ,
-    COLON,          // :
     INT(i32),       // integer literal
     FLOAT(f32),     // floating point number literal
     STRING(String), // str literal
     ID(String),     // identifier
-    NEWLINE,        // \n
     EOF,            // EOF
     INDENT,         // indent
-    DEDENT,         // dedent
+    UNINDENT,         // unindent
     EMPTY,          // for initial
 }

@@ -32,26 +32,162 @@ impl Tokenizer {
 
         self.skip_space();
 
-        // 必要があればindent/dedentを生成
+        // 必要があればindent/unindentを生成
         if self.leading_space > self.indent_stack[self.indent_stack.len() - 1] {
             // indent
             self.indent_stack.push(self.leading_space);
             self.current_token = Token::INDENT;
             return;
         } else if self.leading_space < self.indent_stack[self.indent_stack.len() - 1] {
-            // dedent
+            // unindent
             self.indent_stack.pop();
             if self.leading_space > self.indent_stack[self.indent_stack.len() - 1] {
                 // IndentationError: unindent does not match any outer indentation level
                 errors::wrong_indent(&self);
             }
-            self.current_token = Token::DEDENT;
+            self.current_token = Token::UNINDENT;
             return;
         }
 
         self.current_token = match self.char_stream.get_current_char() {
             None => Token::EOF,
-            Some('\n') => Token::NEWLINE,
+            Some('\n') => {
+                // NEWLINE
+                self.char_stream.next_char();
+                Token::NEWLINE
+            }
+            Some('=') => {
+                // =, ==
+                // 3つ以上は2回に分ける(字句解析器では何もしない。構文解析器で弾かれる)
+                self.char_stream.next_char();
+                if self.char_stream.get_current_char() == Some('=') {
+                    self.char_stream.next_char();
+                    Token::EQEQ
+                } else {
+                    Token::EQ
+                }
+            }
+            Some('!') => {
+                // !=
+                self.char_stream.next_char();
+                if self.char_stream.get_current_char() != Some('=') {
+                    errors::invalid_syntax(&self);
+                }
+                self.char_stream.next_char();
+                Token::NEQ
+            }
+            Some('>') => {
+                // >, >=, >>
+                self.char_stream.next_char();
+                match self.char_stream.get_current_char() {
+                    Some('=') => {
+                        // >=
+                        self.char_stream.next_char();
+                        Token::GEQ
+                    }
+                    Some('>') => {
+                        // >>
+                        self.char_stream.next_char();
+                        Token::RSHIFT
+                    }
+                    _ => {
+                        // >
+                        Token::GT
+                    }
+                }
+            }
+            Some('<') => {
+                // <, <=, <<
+                self.char_stream.next_char();
+                match self.char_stream.get_current_char() {
+                    Some('=') => {
+                        // >=
+                        self.char_stream.next_char();
+                        Token::LEQ
+                    }
+                    Some('<') => {
+                        // <<
+                        self.char_stream.next_char();
+                        Token::LSHIFT
+                    }
+                    _ => {
+                        // >
+                        Token::LT
+                    }
+                }
+            }
+            Some('+') => {
+                self.char_stream.next_char();
+                Token::PLUS
+            }
+            Some('-') => {
+                self.char_stream.next_char();
+                Token::MINUS
+            }
+            Some('*') => {
+                self.char_stream.next_char();
+                Token::MUL
+            }
+            Some('/') => {
+                self.char_stream.next_char();
+                Token::DIV
+            }
+            Some('%') => {
+                self.char_stream.next_char();
+                Token::MOD
+            }
+            Some('~') => {
+                self.char_stream.next_char();
+                Token::TILDE
+            }
+            Some('^') => {
+                self.char_stream.next_char();
+                Token::XOR
+            }
+            Some('&') => {
+                self.char_stream.next_char();
+                Token::AMP
+            }
+            Some('|') => {
+                self.char_stream.next_char();
+                Token::BAR
+            }
+            Some('(') => {
+                self.char_stream.next_char();
+                Token::LPAREN
+            }
+            Some(')') => {
+                self.char_stream.next_char();
+                Token::RPAREN
+            }
+            Some('{') => {
+                self.char_stream.next_char();
+                Token::LBRACE
+            }
+            Some('}') => {
+                self.char_stream.next_char();
+                Token::RBRACE
+            }
+            Some('[') => {
+                self.char_stream.next_char();
+                Token::LBRACKET
+            }
+            Some(']') => {
+                self.char_stream.next_char();
+                Token::RBRACKET
+            }
+            Some('.') => {
+                self.char_stream.next_char();
+                Token::PERIOD
+            }
+            Some(',') => {
+                self.char_stream.next_char();
+                Token::COMMA
+            }
+            Some(':') => {
+                self.char_stream.next_char();
+                Token::COLON
+            }
             Some('0'..='9') => self.tokenize_number(),
             Some('"') => self.tokenize_string(),
             Some(_) => self.tokenize_other(),
