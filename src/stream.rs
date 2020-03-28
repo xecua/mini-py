@@ -34,8 +34,6 @@ impl CharStream {
 
         match self.buf.next() {
             Some(Ok(c)) => {
-                println!("{}", c as char);
-
                 self.current_column += 1;
                 self.current_char = Some(c);
                 self.current_line_content.push(c as char);

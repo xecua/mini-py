@@ -12,11 +12,15 @@ pub struct Tokenizer {
 
 impl Tokenizer {
     pub fn new(file_name: &str) -> std::io::Result<Tokenizer> {
+        // 最初の1文字
+        let mut char_stream = CharStream::new(file_name)?;
+        char_stream.next_char();
+
         Ok(Tokenizer {
             current_token: Token::EMPTY,
             indent_stack: Vec::new(),
             leading_space: 0,
-            char_stream: CharStream::new(file_name)?,
+            char_stream: char_stream,
             token_buf: String::new(),
         })
     }
@@ -31,20 +35,24 @@ impl Tokenizer {
         self.skip_space();
 
         // 必要があればindent/unindentを生成
-        if self.leading_space > self.indent_stack[self.indent_stack.len() - 1] {
-            // indent
-            self.indent_stack.push(self.leading_space);
-            self.current_token = Token::INDENT;
-            return;
-        } else if self.leading_space < self.indent_stack[self.indent_stack.len() - 1] {
-            // unindent
-            self.indent_stack.pop();
-            if self.leading_space > self.indent_stack[self.indent_stack.len() - 1] {
-                // IndentationError: unindent does not match any outer indentation level
-                errors::wrong_indent(&self);
+        if let Some(last) = self.indent_stack.last() {
+            if self.leading_space > *last {
+                // indent
+                self.indent_stack.push(self.leading_space);
+                self.current_token = Token::INDENT;
+                return;
+            } else if self.leading_space < *last {
+                // unindent
+                self.indent_stack.pop();
+                if let Some(last) = self.indent_stack.last() {
+                    if self.leading_space > *last {
+                        // IndentationError: unindent does not match any outer indentation level
+                        errors::wrong_indent(&self);
+                    }
+                }
+                self.current_token = Token::UNINDENT;
+                return;
             }
-            self.current_token = Token::UNINDENT;
-            return;
         }
 
         self.current_token = match self.char_stream.get_current_char() {
@@ -210,8 +218,8 @@ impl Tokenizer {
 
         let mut is_in_comment = false;
 
-        // 読み進める
-        self.char_stream.next_char();
+        // // 読み進める ← 不要
+        // self.char_stream.next_char();
 
         loop {
             let c = self.char_stream.get_current_char();
@@ -241,6 +249,7 @@ impl Tokenizer {
                 return;
             }
             // else : コメント中で、改行ではない文字
+            self.char_stream.next_char();
         }
     }
 
@@ -286,6 +295,7 @@ impl Tokenizer {
                 if c == '\\' && !in_espace {
                     in_espace = true;
                 } else if c == '"' && !in_espace {
+                    self.char_stream.next_char(); // "を読み捨てる
                     break;
                 } else {
                     in_espace = false;
@@ -313,6 +323,7 @@ impl Tokenizer {
                     break;
                 }
             }
+            self.char_stream.next_char();
         }
         match self.token_buf.as_str() {
             "or" => Token::OR,
