@@ -1,45 +1,54 @@
 #![allow(dead_code)]
-use std::io::{
-    BufReader,
-    prelude::*
-};
 use std::fs::File;
+use std::io::{prelude::*, Bytes};
 
 pub struct CharStream {
-    buf: BufReader<File>,
+    file_name: String,
+    buf: Bytes<File>,
     current_char: Option<u8>,
     current_line: usize,
-    current_column: usize
+    current_column: usize,
+    current_line_content: String,
 }
 
 impl CharStream {
     pub fn new(file_name: &str) -> std::io::Result<CharStream> {
         let file = File::open(file_name)?;
-        let buf = BufReader::new(file);
+        let buf = file.bytes();
         Ok(CharStream {
+            file_name: String::from(file_name),
             buf: buf,
             current_char: None,
             current_line: 0,
-            current_column: 0
+            current_column: 0,
+            current_line_content: String::new(),
         })
     }
 
     pub fn next_char(&mut self) {
-        let mut cur = [0u8];
-        match self.buf.read(&mut cur) {
-            Ok(1) => {
+        if self.current_char == Some('\n' as u8) {
+            self.current_line += 1;
+            self.current_column = 0;
+            self.current_line_content.clear();
+        }
+
+        match self.buf.next() {
+            Some(Ok(c)) => {
+                println!("{}", c as char);
+
                 self.current_column += 1;
-                self.current_char = Some(cur[0]);
+                self.current_char = Some(c);
+                self.current_line_content.push(c as char);
 
                 if self.current_line == 0 {
                     self.current_line = 1;
                 }
-                if char::from(cur[0]) == '\n' {
-                    self.current_line += 1;
-                    self.current_column = 0;
-                }
             }
-            _ => {
+            Some(Err(e)) => {
+                panic!("{}", e);
+            }
+            None => {
+                // EOF
                 self.current_char = None;
             }
         }
@@ -58,7 +67,7 @@ impl CharStream {
     pub fn apos(&mut self) {
         self.next_char();
         while let Some(cur) = self.current_char {
-            if char::from(cur) == 'a' {
+            if cur as char == 'a' {
                 println!("line {}, col {}", self.current_line, self.current_column);
             }
             self.next_char();
@@ -66,8 +75,12 @@ impl CharStream {
     }
 
     // None: EOF
-    pub fn get_current_char(&self) -> Option<u8> {
+    pub fn get_current_char_u8(&self) -> Option<u8> {
         self.current_char
+    }
+
+    pub fn get_current_char(&self) -> Option<char> {
+        self.current_char.map(|x| x as char)
     }
 
     pub fn get_current_line(&self) -> usize {
@@ -76,5 +89,9 @@ impl CharStream {
 
     pub fn get_current_column(&self) -> usize {
         self.current_column
+    }
+
+    pub fn get_current_line_content(&self) -> &String {
+        &self.current_line_content
     }
 }
