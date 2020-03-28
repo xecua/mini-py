@@ -5,16 +5,16 @@ pub enum Token {
     NEQ,            // !=
     GT,             // >
     GEQ,            // >=
+    RSHIFT,         // >>
     LT,             // <
     LEQ,            // <=
+    LSHIFT,         // <<
     PLUS,           // +
     MINUS,          // -
     MUL,            // *
     DIV,            // /
     MOD,            // %
     TILDE,          // ~
-    LSHIFT,         // <<
-    RSHIFT,         // >>
     XOR,            // ^
     AMP,            // &
     BAR,            // |
@@ -28,6 +28,10 @@ pub enum Token {
     COMMA,          // ,
     COLON,          // :
     NEWLINE,        // \n
+    INT(i32),       // integer literal
+    FLOAT(f32),     // floating point number literal
+    STRING(String), // str literal
+    ID(String),     // identifier
     OR,             // or
     AND,            // and
     NOT,            // not
@@ -47,12 +51,8 @@ pub enum Token {
     FOR,            // for
     WHILE,          // while
     DEF,            // def
-    INT(i32),       // integer literal
-    FLOAT(f32),     // floating point number literal
-    STRING(String), // str literal
-    ID(String),     // identifier
     EOF,            // EOF
     INDENT,         // indent
-    UNINDENT,         // unindent
+    UNINDENT,       // unindent
     EMPTY,          // for initial
 }

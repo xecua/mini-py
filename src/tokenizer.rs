@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::errors;
 use crate::stream::CharStream;
 use crate::token::Token;
@@ -190,7 +188,7 @@ impl Tokenizer {
             }
             Some('0'..='9') => self.tokenize_number(),
             Some('"') => self.tokenize_string(),
-            Some(_) => self.tokenize_other(),
+            Some(_) => self.tokenize_id_and_keywords(),
         };
     }
 
@@ -301,7 +299,42 @@ impl Tokenizer {
         Token::STRING(self.token_buf.clone())
     }
 
-    fn tokenize_other(&mut self) -> Token {
-        Token::NONE
+    // return ::= keyword | identifier
+    // identifier ::= [a-zA-Z_][a-zA-Z_0-9]*
+    // 1文字目が数値のときはnumberの解析になっているので考えなくていい
+    fn tokenize_id_and_keywords(&mut self) -> Token {
+        loop {
+            match self.char_stream.get_current_char() {
+                Some(c @ '0'..='9') | Some(c @ 'a'..='z') | Some(c @ 'A'..='Z') | Some(c @ '_') => {
+                    self.token_buf.push(c);
+                }
+                _ => {
+                    // next token / EOF
+                    break;
+                }
+            }
+        }
+        match self.token_buf.as_str() {
+            "or" => Token::OR,
+            "and" => Token::AND,
+            "not" => Token::NOT,
+            "is" => Token::IS,
+            "in" => Token::IN,
+            "None" => Token::NONE,
+            "break" => Token::BREAK,
+            "continue" => Token::CONTINUE,
+            "pass" => Token::PASS,
+            "return" => Token::RETURN,
+            "del" => Token::DEL,
+            "print" => Token::PRINT,
+            "global" => Token::GLOBAL,
+            "if" => Token::IF,
+            "elif" => Token::ELIF,
+            "else" => Token::ELSE,
+            "for" => Token::FOR,
+            "while" => Token::WHILE,
+            "def" => Token::DEF,
+            _ => Token::ID(self.token_buf.clone()),
+        }
     }
 }
