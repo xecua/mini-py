@@ -51,8 +51,10 @@ impl Tokenizer {
 
         self.current_token = match self.char_stream.get_current_char() {
             None => Token::EOF,
+            Some('\n') => Token::NEWLINE,
             Some('0'..='9') => self.tokenize_number(),
-            Some(_) => unimplemented!(),
+            Some('"') => self.tokenize_string(),
+            Some(_) => self.tokenize_other(),
         };
     }
 
@@ -137,5 +139,33 @@ impl Tokenizer {
             }
             Token::INT(self.token_buf.parse().unwrap())
         }
+    }
+
+    // string ::= " ([^"\] | \.)* "
+    fn tokenize_string(&mut self) -> Token {
+        // 直前の文字が'\'
+        let mut in_espace = false;
+
+        loop {
+            self.char_stream.next_char();
+            if let Some(c) = self.char_stream.get_current_char() {
+                if c == '\\' && !in_espace {
+                    in_espace = true;
+                } else if c == '"' && !in_espace {
+                    break;
+                } else {
+                    in_espace = false;
+                }
+                self.token_buf.push(c);
+            } else {
+                // SyntaxError: EOL while scanning string literal
+                errors::eol_while_string(&self);
+            }
+        }
+        Token::STRING(self.token_buf.clone())
+    }
+
+    fn tokenize_other(&mut self) -> Token {
+        Token::NONE
     }
 }

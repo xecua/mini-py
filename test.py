@@ -1,1 +1,1 @@
-print(0123)
+print("foo)
