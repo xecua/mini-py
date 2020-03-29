@@ -1,6 +1,9 @@
+//! # parser
+//! 構文解析器
+// LALRPOP(https://github.com/lalrpop/lalrpop)でも良いかも...?
+
 use crate::tokenizer::Tokenizer;
 
-// 構文解析器
 pub struct Parser {
     tokenizer: Tokenizer
 }

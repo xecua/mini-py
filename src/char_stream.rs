@@ -1,4 +1,6 @@
-#![allow(dead_code)]
+//! # char_stream
+//! file reader
+
 use std::fs::File;
 use std::io::{prelude::*, Bytes};
 

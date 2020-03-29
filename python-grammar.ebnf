@@ -1,0 +1,153 @@
+(*
+* https://docs.python.org/3/reference/grammar.html
+* ↑からmini-pythonの文法になさそうなもの(トークンが存在しないものなど)を除去
+* Grammar for mini-Python
+*)
+
+file_input : (NEWLINE | stmt)* ENDMARKER;
+
+funcdef : 'def' NAME parameters ':' func_body_suite;
+parameters: '(' [typedargslist] ')';
+func_body_suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT;
+typedargslist: NAME (',' NAME)* [',']; (*arg1, arg2, ... , *)
+
+stmt: simple_stmt | compound_stmt;
+simple_stmt: small_stmt (';' small_stmt)* [';'] NEWLINE;
+(*
+1. small_stmtをparse
+2. 先頭が;がチェック
+  そうでなければNEWLINEをeatし、終了
+3. ;をeat
+4. 先頭がNEWLINEかチェック
+  そうであればNEWLINEをeatし、終了
+5. 1.に戻る
+って感じ?
+*)
+small_stmt: expr_stmt | del_stmt | pass_stmt | flow_stmt | global_stmt;
+expr_stmt: testlist_star_expr (annassign | ('=' testlist_star_expr)+ );
+annassign: ':' test ['=' testlist_star_expr];
+testlist_star_expr: (test|star_expr) (',' (test|star_expr))* [','];
+del_stmt: 'del' exprlist;
+pass_stmt: 'pass';
+flow_stmt: break_stmt | continue_stmt | return_stmt;
+break_stmt: 'break';
+continue_stmt: 'continue';
+return_stmt: 'return' [testlist_star_expr];
+global_stmt: 'global' NAME (',' NAME)*;
+
+compound_stmt: if_stmt | while_stmt | for_stmt | funcdef;
+if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite];
+while_stmt: 'while' test ':' suite;
+for_stmt: 'for' exprlist 'in' testlist ':' suite;
+suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT;
+
+test: or_test ['if' or_test 'else' test];
+or_test: and_test ('or' and_test)*;
+(* 'or' なら続行。 follow(or_test)なら終了 *)
+and_test: not_test ('and' not_test)*;
+not_test: 'not' not_test | comparison;
+comparison: expr (comp_op expr)*;
+comp_op: '<'|'>'|'=='|'>='|'<='|'!='|'in'|'not' 'in'|'is'|'is' 'not';
+star_expr: '*' expr;
+expr: xor_expr ('|' xor_expr)*;
+xor_expr: and_expr ('^' and_expr)*;
+and_expr: shift_expr ('&' shift_expr)*;
+shift_expr: arith_expr (('<<'|'>>') arith_expr)*;
+arith_expr: term (('+'|'-') term)*;
+term: factor (('*'|'/'|'%') factor)*;
+factor: ('+'|'-'|'~') factor | atom_expr;
+atom_expr: atom trailer*;
+atom: (
+  '(' [testlist_comp] ')' |
+  '[' [testlist_comp] ']' |
+  '{' [dictorsetmaker] '}' |
+  NAME | NUMBER | STRING+ | 'None' | 'True' | 'False'
+);
+testlist_comp: (test|star_expr) ( comp_for | (',' (test|star_expr))* [','] );
+trailer: '(' [arglist] ')' | '[' subscriptlist ']';
+subscriptlist: subscript (',' subscript)* [','];
+subscript: test | [test] ':' [test] [sliceop];
+sliceop: ':' [test];
+exprlist: (expr|star_expr) (',' (expr|star_expr))* [','];
+testlist: test (',' test)* [','];
+dictorsetmaker: (
+  (test ':' test (comp_for | (',' test ':' test)* [','])) |
+  ((test | star_expr) (comp_for | (',' (test | star_expr))* [',']))
+);
+(*
+先頭がfirst(test)だった場合
+1. testをparse
+2. 先頭がコロンかチェック
+  コロンなら前者。testをパースし、続行
+  違うなら後者
+*)
+
+arglist: argument (',' argument)* [','];
+argument: ( test [comp_for] | test '=' test);
+
+comp_iter: comp_for | comp_if;
+comp_for: 'for' exprlist 'in' or_test [comp_iter];
+comp_if: 'if' or_test [comp_iter];
+
+(*
+デフォルト引数あり、list argumentあり
+typedargslist: (
+    NAME ['=' test] (',' NAME ['=' test])* ([',' ['*' [NAME] (',' NAME ['=' test])* [',']]]) # arg1, arg2, ... , *args, arg1_, arg2_, ...
+    | '*' [NAME] (',' NAME ['=' test])* [',']] # *args, arg_1, arg_2, ...
+);
+# デフォルト引数なし、list argumentあり
+typedargslist: (
+    NAME (',' NAME)* ([',' ['*' [NAME] (',' NAME)* [',']]]) # arg1, arg2, ... , *args, arg1_, arg2_, ...
+    | '*' [NAME] (',' NAME)* [',']] # *args, arg_1, arg_2, ...
+);
+# デフォルト引数あり、list argumentなし
+typedargslist: (
+    NAME ['=' test] (',' NAME ['=' test])* [','] # arg1, arg2, ... ,
+);
+*)
+
+(*
+Positional only parameters(Python 3.8 feature)
+|  (NAME ['=' test] (',' NAME ['=' test])* ',' '/' [
+      ',' [
+           NAME ['=' test] (',' NAME ['=' test])* ([',' [
+                '*' [NAME] (',' NAME ['=' test])* ([',' ['**' NAME [',']]]) # arg1, arg2, ... , /, namedarg1, namedarg2, ..., *args, **kwargs
+                | '**' NAME [','] # arg1, arg2, ... , /, namedarg1, namedarg2, ..., **kwargs
+            ]])
+        | '*' [NAME] (',' NAME ['=' test])* ([',' ['**' NAME [',']]]) # arg1, arg2, ..., /, *args, **kwargs
+        | '**' NAME [','] # arg1, arg2, ..., /, **kwargs
+        ]
+    ]
+  )
+)
+*)
+
+(*
+The following definition for typedarglist is equivalent to this set of rules:
+
+    arguments = argument (',' [TYPE_COMMENT] argument)*
+    argument = tfpdef ['=' test]
+    kwargs = '**' tfpdef [','] [TYPE_COMMENT]
+    args = '*' [tfpdef]
+    kwonly_kwargs = (',' [TYPE_COMMENT] argument)* (TYPE_COMMENT | [',' [TYPE_COMMENT] [kwargs]])
+    args_kwonly_kwargs = args kwonly_kwargs | kwargs
+    poskeyword_args_kwonly_kwargs = arguments ( TYPE_COMMENT | [',' [TYPE_COMMENT] [args_kwonly_kwargs]])
+    typedargslist_no_posonly  = poskeyword_args_kwonly_kwargs | args_kwonly_kwargs
+    typedarglist = (arguments ',' [TYPE_COMMENT] '/' [',' [[TYPE_COMMENT] typedargslist_no_posonly]])|(typedargslist_no_posonly)"
+
+It needs to be fully expanded to allow our LL(1) parser to work on it.
+
+typedargslist: (
+  (tfpdef ['=' test] (',' [TYPE_COMMENT] tfpdef ['=' test])* ',' [TYPE_COMMENT] '/' [',' [ [TYPE_COMMENT] tfpdef ['=' test] (
+        ',' [TYPE_COMMENT] tfpdef ['=' test])* (TYPE_COMMENT | [',' [TYPE_COMMENT] [
+        '*' [tfpdef] (',' [TYPE_COMMENT] tfpdef ['=' test])* (TYPE_COMMENT | [',' [TYPE_COMMENT] ['**' tfpdef [','] [TYPE_COMMENT]]])
+      | '**' tfpdef [','] [TYPE_COMMENT]]])
+  | '*' [tfpdef] (',' [TYPE_COMMENT] tfpdef ['=' test])* (TYPE_COMMENT | [',' [TYPE_COMMENT] ['**' tfpdef [','] [TYPE_COMMENT]]])
+  | '**' tfpdef [','] [TYPE_COMMENT]]] )
+|  (tfpdef ['=' test] (',' [TYPE_COMMENT] tfpdef ['=' test])* (TYPE_COMMENT | [',' [TYPE_COMMENT] [
+   '*' [tfpdef] (',' [TYPE_COMMENT] tfpdef ['=' test])* (TYPE_COMMENT | [',' [TYPE_COMMENT] ['**' tfpdef [','] [TYPE_COMMENT]]])
+  | '**' tfpdef [','] [TYPE_COMMENT]]])
+  | '*' [tfpdef] (',' [TYPE_COMMENT] tfpdef ['=' test])* (TYPE_COMMENT | [',' [TYPE_COMMENT] ['**' tfpdef [','] [TYPE_COMMENT]]])
+  | '**' tfpdef [','] [TYPE_COMMENT])
+)
+*)

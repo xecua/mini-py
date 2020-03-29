@@ -1,3 +1,6 @@
+//! # token
+//! 字句解析後のトークン
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     EQ,             // =
