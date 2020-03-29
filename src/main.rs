@@ -1,8 +1,9 @@
 use clap::{App, Arg, SubCommand};
 use std::io;
 
-use minipython::stream::CharStream;
+use minipython::char_stream::CharStream;
 use minipython::tokenizer::Tokenizer;
+use minipython::parser::Parser;
 
 fn main() -> io::Result<()> {
     let matches = App::new("minipython")
@@ -10,6 +11,7 @@ fn main() -> io::Result<()> {
             SubCommand::with_name("lc").arg(Arg::with_name("file").required(true)),
             SubCommand::with_name("apos").arg(Arg::with_name("file").required(true)),
             SubCommand::with_name("tokenize").arg(Arg::with_name("file").required(true)),
+            SubCommand::with_name("parser").arg(Arg::with_name("file").required(true)),
         ])
         .get_matches();
 
@@ -18,15 +20,10 @@ fn main() -> io::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("apos") {
         CharStream::new(matches.value_of("file").unwrap())?.apos();
     } else if let Some(matches) = matches.subcommand_matches("tokenize") {
-        use minipython::token::Token::EOF;
-        let mut t = Tokenizer::new(matches.value_of("file").unwrap())?;
-        loop {
-            t.next_token();
-            println!("{:?}", t.get_current_token());
-            if t.get_current_token() == EOF {
-                break;
-            }
-        }
+        Tokenizer::new(matches.value_of("file").unwrap())?.tokenize();
+    } else if let Some(matches) = matches.subcommand_matches("parse") {
+        let tokenizer = Tokenizer::new(matches.value_of("file").unwrap())?;
+        Parser::new(tokenizer).parse();
     }
 
     Ok(())

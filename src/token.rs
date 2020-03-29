@@ -53,6 +53,6 @@ pub enum Token {
     DEF,            // def
     EOF,            // EOF
     INDENT,         // indent
-    UNINDENT,       // unindent
+    DEDENT,         // dedent
     EMPTY,          // for initial
 }

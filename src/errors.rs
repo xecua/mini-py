@@ -1,5 +1,6 @@
 use crate::tokenizer::Tokenizer;
 
+// tokenizer
 pub fn wrong_indent(_tokenizer: &Tokenizer) -> ! {
     panic!();
 }
@@ -12,3 +13,5 @@ pub fn eol_while_string(_tokenizer: &Tokenizer) -> ! {
 pub fn invalid_syntax(_tokenizer: &Tokenizer) -> ! {
     panic!();
 }
+
+// parser

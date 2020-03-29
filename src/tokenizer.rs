@@ -1,7 +1,8 @@
 use crate::errors;
-use crate::stream::CharStream;
+use crate::char_stream::CharStream;
 use crate::token::Token;
 
+// 字句解析器
 pub struct Tokenizer {
     current_token: Token,
     indent_stack: Vec<usize>,
@@ -18,15 +19,25 @@ impl Tokenizer {
 
         Ok(Tokenizer {
             current_token: Token::EMPTY,
-            indent_stack: Vec::new(),
+            indent_stack: vec![0],
             leading_space: 0,
             char_stream: char_stream,
             token_buf: String::new(),
         })
     }
 
-    pub fn get_current_token(&self) -> Token {
-        self.current_token.clone()
+    pub fn tokenize(&mut self) {
+        loop {
+            self.next_token();
+            println!("{:?}", self.current_token);
+            if self.current_token == Token::EOF {
+                break;
+            }
+        }
+    }
+
+    pub fn get_current_token(&self) -> &Token {
+        &self.current_token
     }
 
     pub fn next_token(&mut self) {
@@ -34,7 +45,7 @@ impl Tokenizer {
 
         self.skip_space();
 
-        // 必要があればindent/unindentを生成
+        // 必要があればindent/dedentを生成
         if let Some(last) = self.indent_stack.last() {
             if self.leading_space > *last {
                 // indent
@@ -42,7 +53,7 @@ impl Tokenizer {
                 self.current_token = Token::INDENT;
                 return;
             } else if self.leading_space < *last {
-                // unindent
+                // dedent
                 self.indent_stack.pop();
                 if let Some(last) = self.indent_stack.last() {
                     if self.leading_space > *last {
@@ -50,7 +61,7 @@ impl Tokenizer {
                         errors::wrong_indent(&self);
                     }
                 }
-                self.current_token = Token::UNINDENT;
+                self.current_token = Token::DEDENT;
                 return;
             }
         }
@@ -60,6 +71,7 @@ impl Tokenizer {
             Some('\n') => {
                 // NEWLINE
                 self.char_stream.next_char();
+                self.leading_space = 0;
                 Token::NEWLINE
             }
             Some('=') => {
@@ -214,11 +226,12 @@ impl Tokenizer {
     // ・共通: EOF(処理全体が終了?)
     fn skip_space(&mut self) {
         // 直前の文字が改行 = 行の先頭
-        let is_in_leading_space = self.char_stream.get_current_char() == Some('\n');
+        // let is_in_leading_space = self.char_stream.get_current_char() == Some('\n');
+        let is_in_leading_space = self.char_stream.get_current_column() == 1;
 
         let mut is_in_comment = false;
 
-        // // 読み進める ← 不要
+        // // 読み進める
         // self.char_stream.next_char();
 
         loop {
@@ -226,7 +239,7 @@ impl Tokenizer {
 
             if c.is_none() {
                 // EOF。特にすることなし
-                break;
+                return;
             } else if c == Some('#') {
                 // コメント開始
                 is_in_comment = true;
@@ -239,7 +252,8 @@ impl Tokenizer {
                     // スペースとコメントしかない行だった 続行
                     // 行の先頭のスペース数をリセット
                     self.leading_space = 0;
-                } else if is_in_comment {
+                    is_in_comment = false;
+                } else {
                     // !is_in_leading_space
                     // スペースとコメント以外になにかを含む行のコメント中
                     return;
@@ -268,6 +282,7 @@ impl Tokenizer {
         // floating point number
         if self.char_stream.get_current_char() == Some('.') {
             self.token_buf.push('.');
+            self.char_stream.next_char();
             while let Some(d @ '0'..='9') = self.char_stream.get_current_char() {
                 self.token_buf.push(d);
                 self.char_stream.next_char();
