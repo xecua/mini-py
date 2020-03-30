@@ -12,8 +12,9 @@ func_body_suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT;
 typedargslist: NAME (',' NAME)* [',']; (*arg1, arg2, ... , *)
 
 stmt: simple_stmt | compound_stmt;
-simple_stmt: small_stmt (';' small_stmt)* [';'] NEWLINE;
+simple_stmt: small_stmt NEWLINE;
 (*
+~~simple_stmt: small_stmt (';' small_stmt)* [';'] NEWLINE;
 1. small_stmtをparse
 2. 先頭が;がチェック
   そうでなければNEWLINEをeatし、終了
@@ -21,7 +22,9 @@ simple_stmt: small_stmt (';' small_stmt)* [';'] NEWLINE;
 4. 先頭がNEWLINEかチェック
   そうであればNEWLINEをeatし、終了
 5. 1.に戻る
-って感じ?
+
+って感じ?~~
+そもそもセミコロン存在しなかったわ
 *)
 small_stmt: expr_stmt | del_stmt | pass_stmt | flow_stmt | global_stmt;
 expr_stmt: testlist_star_expr (annassign | ('=' testlist_star_expr)+ );

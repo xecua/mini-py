@@ -1,4 +1,5 @@
 use crate::tokenizer::Tokenizer;
+use crate::parser::Parser;
 
 // tokenizer
 pub fn wrong_indent(_tokenizer: &Tokenizer) -> ! {
@@ -15,3 +16,6 @@ pub fn invalid_syntax(_tokenizer: &Tokenizer) -> ! {
 }
 
 // parser
+pub fn unexpected_token(_parser: &Parser) -> ! {
+    panic!();
+}

@@ -54,6 +54,8 @@ pub enum Token {
     FOR,            // for
     WHILE,          // while
     DEF,            // def
+    TRUE,           // True
+    FALSE,          // False
     EOF,            // EOF
     INDENT,         // indent
     DEDENT,         // dedent

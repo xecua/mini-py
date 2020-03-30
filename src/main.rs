@@ -22,8 +22,7 @@ fn main() -> io::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("tokenize") {
         Tokenizer::new(matches.value_of("file").unwrap())?.tokenize();
     } else if let Some(matches) = matches.subcommand_matches("parse") {
-        let tokenizer = Tokenizer::new(matches.value_of("file").unwrap())?;
-        Parser::new(tokenizer).parse();
+        Parser::new(matches.value_of("file").unwrap())?.parse();
     }
 
     Ok(())

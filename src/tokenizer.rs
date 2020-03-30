@@ -360,6 +360,8 @@ impl Tokenizer {
             "for" => Token::FOR,
             "while" => Token::WHILE,
             "def" => Token::DEF,
+            "True" => Token::TRUE,
+            "False" => Token::FALSE,
             _ => Token::ID(self.token_buf.clone()),
         }
     }
