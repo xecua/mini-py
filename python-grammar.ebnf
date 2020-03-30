@@ -6,9 +6,14 @@
 
 file_input : (NEWLINE | stmt)* ENDMARKER;
 
-funcdef : 'def' NAME parameters ':' func_body_suite;
+funcdef : 'def' NAME parameters ':' suite;
 parameters: '(' [typedargslist] ')';
-func_body_suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT;
+(*
+  funcdef : 'def' NAME parameters ':' func_body_suite;
+  func_body_suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT;
+  ↑ as same as suite(result of removing TYPE_COMMENT)
+*)
+
 typedargslist: NAME (',' NAME)* [',']; (*arg1, arg2, ... , *)
 
 stmt: simple_stmt | compound_stmt;

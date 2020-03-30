@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{prelude::*, Bytes};
 
 pub struct CharStream {
-    file_name: String,
+    _file_name: String,
     buf: Bytes<File>,
     current_char: Option<u8>,
     current_line: usize,
@@ -18,7 +18,7 @@ impl CharStream {
         let file = File::open(file_name)?;
         let buf = file.bytes();
         Ok(CharStream {
-            file_name: String::from(file_name),
+            _file_name: String::from(file_name),
             buf: buf,
             current_char: None,
             current_line: 0,

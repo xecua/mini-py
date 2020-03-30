@@ -1,6 +1,8 @@
 //! # parser
 //! 構文解析器
 // LALRPOP(https://github.com/lalrpop/lalrpop)でも良いかも...?
+// follow setの判定は行わないことにする
+// (次のトークンでfirst setに含まれないとして弾く)
 
 use crate::ast::AST;
 use crate::errors;
@@ -530,7 +532,7 @@ impl Parser {
             _ => errors::unexpected_token(&self),
         };
         self.eat(Token::COLON);
-        let func_body_suite = match self.tokenizer.get_current_token() {
+        let suite = match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -552,10 +554,10 @@ impl Parser {
             | Token::CONTINUE
             | Token::RETURN
             | Token::GLOBAL
-            | Token::NEWLINE => self.parse_func_body_suite(),
+            | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
-        Box::new(AST::FuncDef(name, parameters, func_body_suite))
+        Box::new(AST::FuncDef(name, parameters, suite))
     }
 
     fn parse_small_stmt(&mut self) -> Box<AST> {
@@ -584,43 +586,647 @@ impl Parser {
     }
 
     fn parse_or_test(&mut self) -> Box<AST> {
-        unimplemented!();
+        let mut and_test: Vec<Box<AST>> = Vec::new();
+        and_test.push(match self.tokenizer.get_current_token() {
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_and_test(),
+            _ => errors::unexpected_token(&self),
+        });
+        while *self.tokenizer.get_current_token() == Token::OR {
+            self.eat(Token::OR);
+            and_test.push(match self.tokenizer.get_current_token() {
+                Token::NOT
+                | Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_and_test(),
+                _ => errors::unexpected_token(&self),
+            });
+        }
+        Box::new(AST::OrTest(and_test))
     }
 
     fn parse_exprlist(&mut self) -> Box<AST> {
-        unimplemented!();
+        let mut body: Vec<Box<AST>> = Vec::new();
+        body.push(match self.tokenizer.get_current_token() {
+            Token::MUL => self.parse_star_expr(),
+            Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_expr(),
+            _ => errors::unexpected_token(&self),
+        });
+        while *self.tokenizer.get_current_token() == Token::COMMA {
+            self.eat(Token::COMMA);
+            body.push(match self.tokenizer.get_current_token() {
+                Token::MUL => self.parse_star_expr(),
+                Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_expr(),
+                _ => break,
+            });
+        }
+        Box::new(AST::Exprlist(body))
     }
+
     fn parse_testlist(&mut self) -> Box<AST> {
-        unimplemented!();
+        let mut test: Vec<Box<AST>> = Vec::new();
+        test.push(match self.tokenizer.get_current_token() {
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_test(),
+            _ => errors::unexpected_token(&self),
+        });
+        while *self.tokenizer.get_current_token() == Token::COMMA {
+            self.eat(Token::COMMA);
+            test.push(match self.tokenizer.get_current_token() {
+                Token::NOT
+                | Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_test(),
+                _ => break,
+            });
+        }
+
+        Box::new(AST::Testlist(test))
     }
 
     fn parse_parameters(&mut self) -> Box<AST> {
-        unimplemented!();
-    }
-
-    fn parse_func_body_suite(&mut self) -> Box<AST> {
-        unimplemented!();
+        self.eat(Token::LPAREN);
+        let typedargslist = match self.tokenizer.get_current_token() {
+            Token::ID(_) => Some(self.parse_typedargslist()),
+            Token::RPAREN => None,
+            _ => errors::unexpected_token(&self),
+        };
+        self.eat(Token::RPAREN);
+        Box::new(AST::Parameters(typedargslist))
     }
 
     fn parse_expr_stmt(&mut self) -> Box<AST> {
-        unimplemented!();
+        let testlist_star_expr = match self.tokenizer.get_current_token() {
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::MUL
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_testlist_star_expr(),
+            _ => errors::unexpected_token(&self),
+        };
+        let body = match self.tokenizer.get_current_token() {
+            Token::COLON => vec![self.parse_annassign()],
+            Token::EQ => {
+                let mut body: Vec<Box<AST>> = Vec::new();
+                self.eat(Token::EQ);
+                body.push(match self.tokenizer.get_current_token() {
+                    Token::NOT
+                    | Token::PLUS
+                    | Token::MINUS
+                    | Token::TILDE
+                    | Token::MUL
+                    | Token::LPAREN
+                    | Token::LBRACE
+                    | Token::LBRACKET
+                    | Token::ID(_)
+                    | Token::INT(_)
+                    | Token::FLOAT(_)
+                    | Token::STRING(_)
+                    | Token::NONE
+                    | Token::TRUE
+                    | Token::FALSE => self.parse_testlist_star_expr(),
+                    _ => errors::unexpected_token(&self),
+                });
+                while *self.tokenizer.get_current_token() == Token::EQ {
+                    self.eat(Token::EQ);
+                    body.push(match self.tokenizer.get_current_token() {
+                        Token::NOT
+                        | Token::PLUS
+                        | Token::MINUS
+                        | Token::TILDE
+                        | Token::MUL
+                        | Token::LPAREN
+                        | Token::LBRACE
+                        | Token::LBRACKET
+                        | Token::ID(_)
+                        | Token::INT(_)
+                        | Token::FLOAT(_)
+                        | Token::STRING(_)
+                        | Token::NONE
+                        | Token::TRUE
+                        | Token::FALSE => self.parse_testlist_star_expr(),
+                        _ => errors::unexpected_token(&self),
+                    });
+                }
+                body
+            }
+            _ => errors::unexpected_token(&self),
+        };
+        Box::new(AST::ExprStmt(testlist_star_expr, body))
     }
 
     fn parse_del_stmt(&mut self) -> Box<AST> {
-        unimplemented!();
+        self.eat(Token::DEL);
+        Box::new(AST::DelStmt(match self.tokenizer.get_current_token() {
+            Token::MUL
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_exprlist(),
+            _ => errors::unexpected_token(&self),
+        }))
     }
 
     fn parse_pass_stmt(&mut self) -> Box<AST> {
-        unimplemented!();
+        self.eat(Token::PASS);
+        Box::new(AST::PassStmt)
     }
 
     fn parse_flow_stmt(&mut self) -> Box<AST> {
-        unimplemented!();
+        match self.tokenizer.get_current_token() {
+            Token::BREAK => self.parse_break_stmt(),
+            Token::CONTINUE => self.parse_continue_stmt(),
+            Token::RETURN => self.parse_return_stmt(),
+            _ => errors::unexpected_token(&self),
+        }
     }
 
     fn parse_global_stmt(&mut self) -> Box<AST> {
+        self.eat(Token::GLOBAL);
+        let mut name: Vec<String> = Vec::new();
+        name.push(match self.tokenizer.get_current_token() {
+            Token::ID(name) => name.to_owned(),
+            _ => errors::unexpected_token(&self),
+        });
+        while *self.tokenizer.get_current_token() == Token::COMMA {
+            self.eat(Token::COMMA);
+            name.push(match self.tokenizer.get_current_token() {
+                Token::ID(name) => name.to_owned(),
+                _ => break,
+            });
+        }
+        Box::new(AST::GlobalStmt(name))
+    }
+
+    fn parse_and_test(&mut self) -> Box<AST> {
+        let mut not_test: Vec<Box<AST>> = Vec::new();
+        not_test.push(match self.tokenizer.get_current_token() {
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_not_test(),
+            _ => errors::unexpected_token(&self),
+        });
+        while *self.tokenizer.get_current_token() == Token::AND {
+            self.eat(Token::AND);
+            not_test.push(match self.tokenizer.get_current_token() {
+                Token::NOT
+                | Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_not_test(),
+                _ => errors::unexpected_token(&self),
+            });
+        }
+        Box::new(AST::AndTest(not_test))
+    }
+
+    fn parse_expr(&mut self) -> Box<AST> {
+        let mut xor_expr: Vec<Box<AST>> = Vec::new();
+        xor_expr.push(match self.tokenizer.get_current_token() {
+            Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_xor_expr(),
+            _ => errors::unexpected_token(&self),
+        });
+        while *self.tokenizer.get_current_token() == Token::BAR {
+            self.eat(Token::BAR);
+            xor_expr.push(match self.tokenizer.get_current_token() {
+                Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_xor_expr(),
+                _ => errors::unexpected_token(&self),
+            });
+        }
+        Box::new(AST::Expr(xor_expr))
+    }
+
+    fn parse_star_expr(&mut self) -> Box<AST> {
+        self.eat(Token::MUL);
+        Box::new(AST::StarExpr(match self.tokenizer.get_current_token() {
+            Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_expr(),
+            _ => errors::unexpected_token(&self),
+        }))
+    }
+
+    fn parse_typedargslist(&mut self) -> Box<AST> {
+        let mut name: Vec<String> = Vec::new();
+        name.push(match self.tokenizer.get_current_token() {
+            Token::ID(name) => name.to_owned(),
+            _ => errors::unexpected_token(&self),
+        });
+        while *self.tokenizer.get_current_token() == Token::COMMA {
+            self.eat(Token::COMMA);
+            name.push(match self.tokenizer.get_current_token() {
+                Token::ID(name) => name.to_owned(),
+                _ => break,
+            });
+        }
+        Box::new(AST::TypedArgsList(name))
+    }
+
+    fn parse_testlist_star_expr(&mut self) -> Box<AST> {
+        let mut body: Vec<Box<AST>> = Vec::new();
+        body.push(match self.tokenizer.get_current_token() {
+            Token::MUL => self.parse_star_expr(),
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_test(),
+            _ => errors::unexpected_token(&self),
+        });
+        while *self.tokenizer.get_current_token() == Token::COMMA {
+            self.eat(Token::COMMA);
+            body.push(match self.tokenizer.get_current_token() {
+                Token::MUL => self.parse_star_expr(),
+                Token::NOT
+                | Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_test(),
+                _ => break,
+            });
+        }
+        Box::new(AST::TestlistStarExpr(body))
+    }
+
+    fn parse_break_stmt(&mut self) -> Box<AST> {
+        self.eat(Token::BREAK);
+        Box::new(AST::BreakStmt)
+    }
+
+    fn parse_continue_stmt(&mut self) -> Box<AST> {
+        self.eat(Token::CONTINUE);
+        Box::new(AST::ContinueStmt)
+    }
+
+    fn parse_return_stmt(&mut self) -> Box<AST> {
+        self.eat(Token::RETURN);
+        Box::new(AST::ReturnStmt(match self.tokenizer.get_current_token() {
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::MUL
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => Some(self.parse_testlist_star_expr()),
+            _ => None,
+        }))
+    }
+
+    fn parse_annassign(&mut self) -> Box<AST> {
+        self.eat(Token::COLON);
+        let test = match self.tokenizer.get_current_token() {
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_test(),
+            _ => errors::unexpected_token(&self),
+        };
+        let testlist_star_expr = if *self.tokenizer.get_current_token() == Token::EQ {
+            self.eat(Token::EQ);
+            match self.tokenizer.get_current_token() {
+                Token::NOT
+                | Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::MUL
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => Some(self.parse_testlist_star_expr()),
+                _ => errors::unexpected_token(&self),
+            }
+        } else {
+            None
+        };
+        Box::new(AST::Annassign(test, testlist_star_expr))
+    }
+
+    fn parse_xor_expr(&mut self) -> Box<AST> {
+        let mut and_expr: Vec<Box<AST>> = Vec::new();
+        and_expr.push(match self.tokenizer.get_current_token() {
+            Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_and_expr(),
+            _ => errors::unexpected_token(&self),
+        });
+        while *self.tokenizer.get_current_token() == Token::XOR {
+            self.eat(Token::XOR);
+            and_expr.push(match self.tokenizer.get_current_token() {
+                Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_and_expr(),
+                _ => errors::unexpected_token(&self),
+            });
+        }
+        Box::new(AST::XorExpr(and_expr))
+    }
+
+    fn parse_not_test(&mut self) -> Box<AST> {
+        match self.tokenizer.get_current_token() {
+            Token::NOT => {
+                self.eat(Token::NOT);
+                Box::new(AST::NotTest)
+            }
+        };( self.eat()
+    }
+
+    fn parse_and_expr(&mut self) -> Box<AST> {
+        let mut shift_expr: Vec<Box<AST>> = Vec::new();
+        shift_expr.push(match self.tokenizer.get_current_token() {
+            Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_shift_expr(),
+            _ => errors::unexpected_token(&self),
+        });
+        while *self.tokenizer.get_current_token() == Token::AMP {
+            self.eat(Token::AMP);
+            shift_expr.push(match self.tokenizer.get_current_token() {
+                Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_shift_expr(),
+                _ => errors::unexpected_token(&self),
+            });
+        }
+        Box::new(AST::AndExpr(shift_expr))
+    }
+
+    fn parse_shift_expr(&mut self) -> Box<AST> {
+        let arith_expr = match self.tokenizer.get_current_token() {
+            Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_arith_expr(),
+            _ => errors::unexpected_token(&self),
+        };
+        let mut rest: Vec<(Box<AST>, Box<AST>)> = Vec::new();
+        loop {
+            let op = match *self.tokenizer.get_current_token() {
+                Token::LSHIFT => {
+                    self.eat(Token::LSHIFT);
+                    Box::new(AST::Lshift)
+                }
+                Token::RSHIFT => {
+                    self.eat(Token::RSHIFT);
+                    Box::new(AST::Rshift)
+                }
+                _ => break,
+            };
+            rest.push((op, match self.tokenizer.get_current_token() {
+                Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_arith_expr(),
+                _ => errors::unexpected_token(&self),
+            }));
+        }
+        Box::new(AST::ShiftExpr(arith_expr, rest))
+    }
+
+    fn parse_arith_expr(&mut self) -> Box<AST> {
         unimplemented!();
     }
+
     fn eat(&mut self, expected: Token) {
         if *self.tokenizer.get_current_token() != expected {
             errors::unexpected_token(&self);

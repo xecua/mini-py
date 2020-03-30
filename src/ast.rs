@@ -10,16 +10,13 @@ pub enum AST {
         // funcdef from compound_stmt
         String,   // name
         Box<AST>, // typedargslist from parameters
-        Box<AST>, // func_body_suite
+        Box<AST>, // func_body_suite(suite)
     ),
     Parameters(
         Option<Box<AST>>, // typedargslist
     ),
     TypedArgsList(
         Vec<String>, // NAME
-    ),
-    FuncBodySuite(
-        Vec<AST>, // simple_stmt or stmt[s]
     ),
     Stmt(
         Box<AST>, // simple_stmt or if_stmt or while_stmt or for_stmt or funcdef
@@ -33,14 +30,14 @@ pub enum AST {
     ),
     ExprStmt(
         Box<AST>, // testlist_star_expr
-        Vec<AST>, // annassign or testlist_star_expr
+        Vec<Box<AST>>, // annassign or testlist_star_expr
     ),
     Annassign(
         Box<AST>,         // test
         Option<Box<AST>>, // testlist_star_expr
     ),
     TestlistStarExpr(
-        Vec<AST>, // (test or star_expr)[s]
+        Vec<Box<AST>>, // (test or star_expr)[s]
     ),
     DelStmt(
         Box<AST>, // exprlist
@@ -79,7 +76,7 @@ pub enum AST {
         Vec<Box<AST>>, // and_test[s]
     ),
     AndTest(
-        Vec<AST>, // not_test[s]
+        Vec<Box<AST>>, // not_test[s]
     ),
     NotTest(
         Box<AST>, // not_test or comparison
@@ -102,17 +99,17 @@ pub enum AST {
         Box<AST>, // expr
     ),
     Expr(
-        Vec<AST>, // xor_expr
+        Vec<Box<AST>>, // xor_expr
     ),
     XorExpr(
-        Vec<AST>, // and_expr
+        Vec<Box<AST>>, // and_expr
     ),
     AndExpr(
-        Vec<AST>, // shift_expr
+        Vec<Box<AST>>, // shift_expr
     ),
     ShiftExpr(
         Box<AST>,        // arith_expr
-        Vec<(AST, AST)>, // << or >>, arith_expr
+        Vec<(Box<AST>, Box<AST>)>, // << or >>, arith_expr
     ),
     Lshift, // <<
     Rshift, // >>
@@ -129,4 +126,15 @@ pub enum AST {
     Mul, // *
     Div, // /
     Mod, // %
+    Exprlist(
+        Vec<Box<AST>>, // expr or star_expr
+    ),
+    Testlist(
+        Vec<Box<AST>>, // test
+    )
+}
+
+enum NotTestContent {
+    Not(Box<AST>),
+    Comparison(Box<AST>),
 }
