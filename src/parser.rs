@@ -4,7 +4,7 @@
 // follow setの判定は行わないことにする
 // (次のトークンでfirst setに含まれないとして弾く)
 
-use crate::ast::AST;
+use crate::ast::*;
 use crate::errors;
 use crate::token::Token;
 use crate::tokenizer::Tokenizer;
@@ -23,8 +23,8 @@ impl Parser {
         })
     }
 
-    pub fn parse(&mut self) -> Box<AST> {
-        let mut tree: Vec<Box<AST>> = Vec::new();
+    pub fn parse(&mut self) -> AST {
+        let mut tree: Vec<ASTStmt> = Vec::new();
         self.tokenizer.next_token();
         loop {
             match self.tokenizer.get_current_token() {
@@ -62,10 +62,10 @@ impl Parser {
                 _ => errors::unexpected_token(&self),
             };
         }
-        Box::new(AST::File(tree))
+        tree
     }
 
-    fn parse_stmt(&mut self) -> Box<AST> {
+    fn parse_stmt(&mut self) -> ASTStmt {
         match self.tokenizer.get_current_token() {
             Token::IF | Token::WHILE | Token::FOR | Token::DEF => self.parse_compound_stmt(),
             Token::NOT
@@ -93,17 +93,21 @@ impl Parser {
         }
     }
 
-    fn parse_compound_stmt(&mut self) -> Box<AST> {
+    fn parse_compound_stmt(&mut self) -> ASTStmt {
         match self.tokenizer.get_current_token() {
-            Token::IF => self.parse_if_stmt(),
+            Token::IF => self.parse_if_stmt(false),
             Token::WHILE => self.parse_while_stmt(),
             Token::FOR => self.parse_for_stmt(),
             Token::DEF => self.parse_funcdef(),
             _ => errors::unexpected_token(&self),
         }
     }
-    fn parse_if_stmt(&mut self) -> Box<AST> {
-        self.eat(Token::IF);
+
+    fn parse_if_stmt(&mut self, is_orelse: bool) -> ASTStmt {
+        // orelseで呼ばれた場合、'if' はない
+        if !is_orelse {
+            self.eat(&Token::IF);
+        }
         let test = match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
@@ -121,8 +125,8 @@ impl Parser {
             | Token::FALSE => self.parse_test(),
             _ => errors::unexpected_token(&self),
         };
-        self.eat(Token::COLON);
-        let suite = match self.tokenizer.get_current_token() {
+        self.eat(&Token::COLON);
+        let body = match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -147,107 +151,64 @@ impl Parser {
             | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
-        let mut elif: Vec<(Box<AST>, Box<AST>)> = Vec::new();
-        while *self.tokenizer.get_current_token() == Token::ELIF {
-            self.eat(Token::ELIF);
-            let test = match self.tokenizer.get_current_token() {
-                Token::NOT
-                | Token::PLUS
-                | Token::MINUS
-                | Token::TILDE
-                | Token::LPAREN
-                | Token::LBRACE
-                | Token::LBRACKET
-                | Token::ID(_)
-                | Token::INT(_)
-                | Token::FLOAT(_)
-                | Token::STRING(_)
-                | Token::NONE
-                | Token::TRUE
-                | Token::FALSE => self.parse_test(),
-                _ => errors::unexpected_token(&self),
-            };
-            self.eat(Token::COLON);
-            let suite = match self.tokenizer.get_current_token() {
-                Token::NOT
-                | Token::PLUS
-                | Token::MINUS
-                | Token::TILDE
-                | Token::MUL
-                | Token::LPAREN
-                | Token::LBRACE
-                | Token::LBRACKET
-                | Token::ID(_)
-                | Token::INT(_)
-                | Token::FLOAT(_)
-                | Token::STRING(_)
-                | Token::NONE
-                | Token::TRUE
-                | Token::FALSE
-                | Token::DEL
-                | Token::PASS
-                | Token::BREAK
-                | Token::CONTINUE
-                | Token::RETURN
-                | Token::GLOBAL
-                | Token::NEWLINE => self.parse_suite(),
-                _ => errors::unexpected_token(&self),
-            };
-            elif.push((test, suite));
-        }
-        let else_ = if *self.tokenizer.get_current_token() == Token::ELSE {
-            self.eat(Token::ELSE);
-            let test = match self.tokenizer.get_current_token() {
-                Token::NOT
-                | Token::PLUS
-                | Token::MINUS
-                | Token::TILDE
-                | Token::LPAREN
-                | Token::LBRACE
-                | Token::LBRACKET
-                | Token::ID(_)
-                | Token::INT(_)
-                | Token::FLOAT(_)
-                | Token::STRING(_)
-                | Token::NONE
-                | Token::TRUE
-                | Token::FALSE => self.parse_test(),
-                _ => errors::unexpected_token(&self),
-            };
-            self.eat(Token::COLON);
-            let suite = match self.tokenizer.get_current_token() {
-                Token::NOT
-                | Token::PLUS
-                | Token::MINUS
-                | Token::TILDE
-                | Token::MUL
-                | Token::LPAREN
-                | Token::LBRACE
-                | Token::LBRACKET
-                | Token::ID(_)
-                | Token::INT(_)
-                | Token::FLOAT(_)
-                | Token::STRING(_)
-                | Token::NONE
-                | Token::TRUE
-                | Token::FALSE
-                | Token::DEL
-                | Token::PASS
-                | Token::BREAK
-                | Token::CONTINUE
-                | Token::RETURN
-                | Token::GLOBAL
-                | Token::NEWLINE => self.parse_suite(),
-                _ => errors::unexpected_token(&self),
-            };
-            Some((test, suite))
-        } else {
-            None
+        let orelse: Vec<ASTStmt> = match self.tokenizer.get_current_token() {
+            Token::ELIF => {
+                // elifをelse ifに分解する(elifをeatした後、if文として再パース)
+                self.eat(&Token::ELIF);
+                match self.tokenizer.get_current_token() {
+                    Token::NOT
+                    | Token::PLUS
+                    | Token::MINUS
+                    | Token::TILDE
+                    | Token::LPAREN
+                    | Token::LBRACE
+                    | Token::LBRACKET
+                    | Token::ID(_)
+                    | Token::INT(_)
+                    | Token::FLOAT(_)
+                    | Token::STRING(_)
+                    | Token::NONE
+                    | Token::TRUE
+                    | Token::FALSE => vec![self.parse_if_stmt(true)],
+                    _ => errors::unexpected_token(&self),
+                }
+            }
+            Token::ELSE => {
+                // elseのsuite
+                self.eat(&Token::ELSE);
+                self.eat(&Token::COLON);
+                match self.tokenizer.get_current_token() {
+                    Token::NOT
+                    | Token::PLUS
+                    | Token::MINUS
+                    | Token::TILDE
+                    | Token::MUL
+                    | Token::LPAREN
+                    | Token::LBRACE
+                    | Token::LBRACKET
+                    | Token::ID(_)
+                    | Token::INT(_)
+                    | Token::FLOAT(_)
+                    | Token::STRING(_)
+                    | Token::NONE
+                    | Token::TRUE
+                    | Token::FALSE
+                    | Token::DEL
+                    | Token::PASS
+                    | Token::BREAK
+                    | Token::CONTINUE
+                    | Token::RETURN
+                    | Token::GLOBAL
+                    | Token::NEWLINE => self.parse_suite(),
+                    _ => errors::unexpected_token(&self),
+                }
+            }
+            _ => Vec::new(), // 特に何もしない
         };
-        Box::new(AST::IfStmt((test, suite), elif, else_))
+        ASTStmt::If(test, body, orelse)
     }
 
-    fn parse_simple_stmt(&mut self) -> Box<AST> {
+    fn parse_simple_stmt(&mut self) -> ASTStmt {
         let small_stmt = match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
@@ -272,12 +233,12 @@ impl Parser {
             | Token::GLOBAL => self.parse_small_stmt(),
             _ => errors::unexpected_token(&self),
         };
-        self.eat(Token::NEWLINE);
-        Box::new(AST::SimpleStmt(small_stmt))
+        self.eat(&Token::NEWLINE);
+        small_stmt
     }
 
-    fn parse_test(&mut self) -> Box<AST> {
-        let or_test = match self.tokenizer.get_current_token() {
+    fn parse_test(&mut self) -> ASTExpr {
+        let body = match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -294,9 +255,10 @@ impl Parser {
             | Token::FALSE => self.parse_or_test(),
             _ => errors::unexpected_token(&self),
         };
-        let (condition, test) = if *self.tokenizer.get_current_token() == Token::IF {
-            self.eat(Token::IF);
-            let condition = match self.tokenizer.get_current_token() {
+        // ternary operator
+        if *self.tokenizer.get_current_token() == Token::IF {
+            self.eat(&Token::IF);
+            let test = match self.tokenizer.get_current_token() {
                 Token::NOT
                 | Token::PLUS
                 | Token::MINUS
@@ -313,8 +275,8 @@ impl Parser {
                 | Token::FALSE => self.parse_or_test(),
                 _ => errors::unexpected_token(&self),
             };
-            self.eat(Token::ELSE);
-            let test = match self.tokenizer.get_current_token() {
+            self.eat(&Token::ELSE);
+            let orelse = match self.tokenizer.get_current_token() {
                 Token::NOT
                 | Token::PLUS
                 | Token::MINUS
@@ -331,83 +293,81 @@ impl Parser {
                 | Token::FALSE => self.parse_test(),
                 _ => errors::unexpected_token(&self),
             };
-            (Some(condition), Some(test))
+            ASTExpr::IfExp(Box::new(test), Box::new(body), Box::new(orelse))
         } else {
-            (None, None)
-        };
-        Box::new(AST::Test(or_test, condition, test))
-    }
-
-    fn parse_suite(&mut self) -> Box<AST> {
-        if *self.tokenizer.get_current_token() == Token::NEWLINE {
-            self.eat(Token::NEWLINE);
-            self.eat(Token::INDENT);
-            let mut stmt: Vec<Box<AST>> = Vec::new();
-            loop {
-                match self.tokenizer.get_current_token() {
-                    Token::NOT
-                    | Token::PLUS
-                    | Token::MINUS
-                    | Token::TILDE
-                    | Token::MUL
-                    | Token::LPAREN
-                    | Token::LBRACE
-                    | Token::LBRACKET
-                    | Token::ID(_)
-                    | Token::INT(_)
-                    | Token::FLOAT(_)
-                    | Token::STRING(_)
-                    | Token::NONE
-                    | Token::TRUE
-                    | Token::FALSE
-                    | Token::DEL
-                    | Token::PASS
-                    | Token::BREAK
-                    | Token::CONTINUE
-                    | Token::RETURN
-                    | Token::GLOBAL
-                    | Token::IF
-                    | Token::WHILE
-                    | Token::FOR
-                    | Token::DEF => {
-                        stmt.push(self.parse_stmt());
-                    }
-                    Token::DEDENT => break,
-                    _ => errors::unexpected_token(&self),
-                };
-            }
-            self.eat(Token::DEDENT);
-            Box::new(AST::Suite(stmt))
-        } else {
-            Box::new(AST::Suite(vec![match self.tokenizer.get_current_token() {
-                Token::NOT
-                | Token::PLUS
-                | Token::MINUS
-                | Token::TILDE
-                | Token::MUL
-                | Token::LPAREN
-                | Token::LBRACE
-                | Token::LBRACKET
-                | Token::ID(_)
-                | Token::INT(_)
-                | Token::FLOAT(_)
-                | Token::STRING(_)
-                | Token::NONE
-                | Token::TRUE
-                | Token::FALSE
-                | Token::DEL
-                | Token::PASS
-                | Token::BREAK
-                | Token::CONTINUE
-                | Token::RETURN
-                | Token::GLOBAL => self.parse_small_stmt(),
-                _ => errors::unexpected_token(&self),
-            }]))
+            body
         }
     }
 
-    fn parse_while_stmt(&mut self) -> Box<AST> {
-        self.eat(Token::WHILE);
+    fn parse_suite(&mut self) -> Vec<ASTStmt> {
+        match self.tokenizer.get_current_token() {
+            Token::NEWLINE => {
+                self.eat(&Token::NEWLINE);
+                self.eat(&Token::INDENT);
+                let mut stmt: Vec<ASTStmt> = Vec::new();
+                loop {
+                    match self.tokenizer.get_current_token() {
+                        Token::NOT
+                        | Token::PLUS
+                        | Token::MINUS
+                        | Token::TILDE
+                        | Token::MUL
+                        | Token::LPAREN
+                        | Token::LBRACE
+                        | Token::LBRACKET
+                        | Token::ID(_)
+                        | Token::INT(_)
+                        | Token::FLOAT(_)
+                        | Token::STRING(_)
+                        | Token::NONE
+                        | Token::TRUE
+                        | Token::FALSE
+                        | Token::DEL
+                        | Token::PASS
+                        | Token::BREAK
+                        | Token::CONTINUE
+                        | Token::RETURN
+                        | Token::GLOBAL
+                        | Token::IF
+                        | Token::WHILE
+                        | Token::FOR
+                        | Token::DEF => {
+                            stmt.push(self.parse_stmt());
+                        }
+                        Token::DEDENT => break,
+                        _ => errors::unexpected_token(&self),
+                    };
+                }
+                self.eat(&Token::DEDENT);
+                stmt
+            }
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::MUL
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE
+            | Token::DEL
+            | Token::PASS
+            | Token::BREAK
+            | Token::CONTINUE
+            | Token::RETURN
+            | Token::GLOBAL => vec![self.parse_small_stmt()],
+            _ => errors::unexpected_token(&self),
+        }
+    }
+
+    fn parse_while_stmt(&mut self) -> ASTStmt {
+        self.eat(&Token::WHILE);
         let test = match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
@@ -425,8 +385,8 @@ impl Parser {
             | Token::FALSE => self.parse_test(),
             _ => errors::unexpected_token(&self),
         };
-        self.eat(Token::COLON);
-        let suite = match self.tokenizer.get_current_token() {
+        self.eat(&Token::COLON);
+        let body = match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -451,12 +411,12 @@ impl Parser {
             | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
-        Box::new(AST::WhileStmt(test, suite))
+        ASTStmt::While(test, body)
     }
 
-    fn parse_for_stmt(&mut self) -> Box<AST> {
-        self.eat(Token::FOR);
-        let exprlist = match self.tokenizer.get_current_token() {
+    fn parse_for_stmt(&mut self) -> ASTStmt {
+        self.eat(&Token::FOR);
+        let target = match self.tokenizer.get_current_token() {
             Token::MUL
             | Token::PLUS
             | Token::MINUS
@@ -470,11 +430,18 @@ impl Parser {
             | Token::STRING(_)
             | Token::NONE
             | Token::TRUE
-            | Token::FALSE => self.parse_exprlist(),
+            | Token::FALSE => {
+                let mut exprlist = self.parse_exprlist();
+                if exprlist.len() == 1 {
+                    exprlist.swap_remove(0)
+                } else {
+                    ASTExpr::Tuple(exprlist)
+                }
+            }
             _ => errors::unexpected_token(&self),
         };
-        self.eat(Token::IN);
-        let testlist = match self.tokenizer.get_current_token() {
+        self.eat(&Token::IN);
+        let iter = match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -491,8 +458,8 @@ impl Parser {
             | Token::FALSE => self.parse_testlist(),
             _ => errors::unexpected_token(&self),
         };
-        self.eat(Token::COLON);
-        let suite = match self.tokenizer.get_current_token() {
+        self.eat(&Token::COLON);
+        let body = match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -517,22 +484,18 @@ impl Parser {
             | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
-        Box::new(AST::ForStmt(exprlist, testlist, suite))
+        ASTStmt::For(target, iter, body)
     }
 
-    fn parse_funcdef(&mut self) -> Box<AST> {
-        self.eat(Token::DEF);
-        let name = match self.tokenizer.get_current_token() {
-            Token::ID(name) => name.to_owned(),
-            _ => errors::unexpected_token(&self),
-        };
-        self.tokenizer.next_token();
-        let parameters = match self.tokenizer.get_current_token() {
+    fn parse_funcdef(&mut self) -> ASTStmt {
+        self.eat(&Token::DEF);
+        let name = self.eat_id();
+        let arguments = match self.tokenizer.get_current_token() {
             Token::LPAREN => self.parse_parameters(),
             _ => errors::unexpected_token(&self),
         };
-        self.eat(Token::COLON);
-        let suite = match self.tokenizer.get_current_token() {
+        self.eat(&Token::COLON);
+        let body = match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -557,11 +520,11 @@ impl Parser {
             | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
-        Box::new(AST::FuncDef(name, parameters, suite))
+        ASTStmt::FuncDef(name, arguments, body)
     }
 
-    fn parse_small_stmt(&mut self) -> Box<AST> {
-        Box::new(AST::SmallStmt(match self.tokenizer.get_current_token() {
+    fn parse_small_stmt(&mut self) -> ASTStmt {
+        match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -582,11 +545,11 @@ impl Parser {
             Token::BREAK | Token::CONTINUE | Token::RETURN => self.parse_flow_stmt(),
             Token::GLOBAL => self.parse_global_stmt(),
             _ => errors::unexpected_token(&self),
-        }))
+        }
     }
 
-    fn parse_or_test(&mut self) -> Box<AST> {
-        let mut and_test: Vec<Box<AST>> = Vec::new();
+    fn parse_or_test(&mut self) -> ASTExpr {
+        let mut and_test: Vec<ASTExpr> = Vec::new();
         and_test.push(match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
@@ -605,7 +568,7 @@ impl Parser {
             _ => errors::unexpected_token(&self),
         });
         while *self.tokenizer.get_current_token() == Token::OR {
-            self.eat(Token::OR);
+            self.eat(&Token::OR);
             and_test.push(match self.tokenizer.get_current_token() {
                 Token::NOT
                 | Token::PLUS
@@ -624,12 +587,12 @@ impl Parser {
                 _ => errors::unexpected_token(&self),
             });
         }
-        Box::new(AST::OrTest(and_test))
+        ASTExpr::BoolOp(ASTBoolOp::Or, and_test)
     }
 
-    fn parse_exprlist(&mut self) -> Box<AST> {
-        let mut body: Vec<Box<AST>> = Vec::new();
-        body.push(match self.tokenizer.get_current_token() {
+    fn parse_exprlist(&mut self) -> Vec<ASTExpr> {
+        let mut res: Vec<ASTExpr> = Vec::new();
+        res.push(match self.tokenizer.get_current_token() {
             Token::MUL => self.parse_star_expr(),
             Token::PLUS
             | Token::MINUS
@@ -647,8 +610,8 @@ impl Parser {
             _ => errors::unexpected_token(&self),
         });
         while *self.tokenizer.get_current_token() == Token::COMMA {
-            self.eat(Token::COMMA);
-            body.push(match self.tokenizer.get_current_token() {
+            self.eat(&Token::COMMA);
+            res.push(match self.tokenizer.get_current_token() {
                 Token::MUL => self.parse_star_expr(),
                 Token::PLUS
                 | Token::MINUS
@@ -666,12 +629,12 @@ impl Parser {
                 _ => break,
             });
         }
-        Box::new(AST::Exprlist(body))
+        res
     }
 
-    fn parse_testlist(&mut self) -> Box<AST> {
-        let mut test: Vec<Box<AST>> = Vec::new();
-        test.push(match self.tokenizer.get_current_token() {
+    fn parse_testlist(&mut self) -> ASTExpr {
+        let mut res: Vec<ASTExpr> = Vec::new();
+        res.push(match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -689,8 +652,8 @@ impl Parser {
             _ => errors::unexpected_token(&self),
         });
         while *self.tokenizer.get_current_token() == Token::COMMA {
-            self.eat(Token::COMMA);
-            test.push(match self.tokenizer.get_current_token() {
+            self.eat(&Token::COMMA);
+            res.push(match self.tokenizer.get_current_token() {
                 Token::NOT
                 | Token::PLUS
                 | Token::MINUS
@@ -708,23 +671,26 @@ impl Parser {
                 _ => break,
             });
         }
-
-        Box::new(AST::Testlist(test))
+        if res.len() == 1 {
+            res.swap_remove(0)
+        } else {
+            ASTExpr::Tuple(res)
+        }
     }
 
-    fn parse_parameters(&mut self) -> Box<AST> {
-        self.eat(Token::LPAREN);
+    fn parse_parameters(&mut self) -> ASTArguments {
+        self.eat(&Token::LPAREN);
         let typedargslist = match self.tokenizer.get_current_token() {
-            Token::ID(_) => Some(self.parse_typedargslist()),
-            Token::RPAREN => None,
+            Token::ID(_) => self.parse_typedargslist(),
+            Token::RPAREN => ASTArguments::new(),
             _ => errors::unexpected_token(&self),
         };
-        self.eat(Token::RPAREN);
-        Box::new(AST::Parameters(typedargslist))
+        self.eat(&Token::RPAREN);
+        typedargslist
     }
 
-    fn parse_expr_stmt(&mut self) -> Box<AST> {
-        let testlist_star_expr = match self.tokenizer.get_current_token() {
+    fn parse_expr_stmt(&mut self) -> ASTStmt {
+        let mut testlist_star_expr = match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -739,15 +705,33 @@ impl Parser {
             | Token::STRING(_)
             | Token::NONE
             | Token::TRUE
-            | Token::FALSE => self.parse_testlist_star_expr(),
+            | Token::FALSE => vec![self.parse_testlist_star_expr()],
             _ => errors::unexpected_token(&self),
         };
-        let body = match self.tokenizer.get_current_token() {
-            Token::COLON => vec![self.parse_annassign()],
-            Token::EQ => {
-                let mut body: Vec<Box<AST>> = Vec::new();
-                self.eat(Token::EQ);
-                body.push(match self.tokenizer.get_current_token() {
+        if *self.tokenizer.get_current_token() == Token::EQ {
+            self.eat(&Token::EQ);
+            let mut tmp = match self.tokenizer.get_current_token() {
+                Token::NOT
+                | Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::MUL
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_testlist_star_expr(),
+                _ => errors::unexpected_token(&self),
+            };
+            while *self.tokenizer.get_current_token() == Token::EQ {
+                testlist_star_expr.push(tmp);
+                self.eat(&Token::EQ);
+                tmp = match self.tokenizer.get_current_token() {
                     Token::NOT
                     | Token::PLUS
                     | Token::MINUS
@@ -764,38 +748,17 @@ impl Parser {
                     | Token::TRUE
                     | Token::FALSE => self.parse_testlist_star_expr(),
                     _ => errors::unexpected_token(&self),
-                });
-                while *self.tokenizer.get_current_token() == Token::EQ {
-                    self.eat(Token::EQ);
-                    body.push(match self.tokenizer.get_current_token() {
-                        Token::NOT
-                        | Token::PLUS
-                        | Token::MINUS
-                        | Token::TILDE
-                        | Token::MUL
-                        | Token::LPAREN
-                        | Token::LBRACE
-                        | Token::LBRACKET
-                        | Token::ID(_)
-                        | Token::INT(_)
-                        | Token::FLOAT(_)
-                        | Token::STRING(_)
-                        | Token::NONE
-                        | Token::TRUE
-                        | Token::FALSE => self.parse_testlist_star_expr(),
-                        _ => errors::unexpected_token(&self),
-                    });
-                }
-                body
+                };
             }
-            _ => errors::unexpected_token(&self),
-        };
-        Box::new(AST::ExprStmt(testlist_star_expr, body))
+            ASTStmt::Assign(testlist_star_expr, tmp)
+        } else {
+            ASTStmt::Expr(testlist_star_expr.swap_remove(0))
+        }
     }
 
-    fn parse_del_stmt(&mut self) -> Box<AST> {
-        self.eat(Token::DEL);
-        Box::new(AST::DelStmt(match self.tokenizer.get_current_token() {
+    fn parse_del_stmt(&mut self) -> ASTStmt {
+        self.eat(&Token::DEL);
+        ASTStmt::Delete(match self.tokenizer.get_current_token() {
             Token::MUL
             | Token::PLUS
             | Token::MINUS
@@ -811,15 +774,15 @@ impl Parser {
             | Token::TRUE
             | Token::FALSE => self.parse_exprlist(),
             _ => errors::unexpected_token(&self),
-        }))
+        })
     }
 
-    fn parse_pass_stmt(&mut self) -> Box<AST> {
-        self.eat(Token::PASS);
-        Box::new(AST::PassStmt)
+    fn parse_pass_stmt(&mut self) -> ASTStmt {
+        self.eat(&Token::PASS);
+        ASTStmt::Pass
     }
 
-    fn parse_flow_stmt(&mut self) -> Box<AST> {
+    fn parse_flow_stmt(&mut self) -> ASTStmt {
         match self.tokenizer.get_current_token() {
             Token::BREAK => self.parse_break_stmt(),
             Token::CONTINUE => self.parse_continue_stmt(),
@@ -828,25 +791,25 @@ impl Parser {
         }
     }
 
-    fn parse_global_stmt(&mut self) -> Box<AST> {
-        self.eat(Token::GLOBAL);
+    fn parse_global_stmt(&mut self) -> ASTStmt {
+        self.eat(&Token::GLOBAL);
         let mut name: Vec<String> = Vec::new();
         name.push(match self.tokenizer.get_current_token() {
             Token::ID(name) => name.to_owned(),
             _ => errors::unexpected_token(&self),
         });
         while *self.tokenizer.get_current_token() == Token::COMMA {
-            self.eat(Token::COMMA);
+            self.eat(&Token::COMMA);
             name.push(match self.tokenizer.get_current_token() {
                 Token::ID(name) => name.to_owned(),
                 _ => break,
             });
         }
-        Box::new(AST::GlobalStmt(name))
+        ASTStmt::Global(name)
     }
 
-    fn parse_and_test(&mut self) -> Box<AST> {
-        let mut not_test: Vec<Box<AST>> = Vec::new();
+    fn parse_and_test(&mut self) -> ASTExpr {
+        let mut not_test: Vec<ASTExpr> = Vec::new();
         not_test.push(match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
@@ -865,7 +828,7 @@ impl Parser {
             _ => errors::unexpected_token(&self),
         });
         while *self.tokenizer.get_current_token() == Token::AND {
-            self.eat(Token::AND);
+            self.eat(&Token::AND);
             not_test.push(match self.tokenizer.get_current_token() {
                 Token::NOT
                 | Token::PLUS
@@ -884,12 +847,11 @@ impl Parser {
                 _ => errors::unexpected_token(&self),
             });
         }
-        Box::new(AST::AndTest(not_test))
+        ASTExpr::BoolOp(ASTBoolOp::And, not_test)
     }
 
-    fn parse_expr(&mut self) -> Box<AST> {
-        let mut xor_expr: Vec<Box<AST>> = Vec::new();
-        xor_expr.push(match self.tokenizer.get_current_token() {
+    fn parse_expr(&mut self) -> ASTExpr {
+        let left = match self.tokenizer.get_current_token() {
             Token::PLUS
             | Token::MINUS
             | Token::TILDE
@@ -904,10 +866,10 @@ impl Parser {
             | Token::TRUE
             | Token::FALSE => self.parse_xor_expr(),
             _ => errors::unexpected_token(&self),
-        });
-        while *self.tokenizer.get_current_token() == Token::BAR {
-            self.eat(Token::BAR);
-            xor_expr.push(match self.tokenizer.get_current_token() {
+        };
+        if *self.tokenizer.get_current_token() == Token::BAR {
+            self.eat(&Token::BAR);
+            let right = match self.tokenizer.get_current_token() {
                 Token::PLUS
                 | Token::MINUS
                 | Token::TILDE
@@ -920,16 +882,18 @@ impl Parser {
                 | Token::STRING(_)
                 | Token::NONE
                 | Token::TRUE
-                | Token::FALSE => self.parse_xor_expr(),
+                | Token::FALSE => self.parse_expr(),
                 _ => errors::unexpected_token(&self),
-            });
+            };
+            ASTExpr::BinOp(Box::new(left), ASTOperator::BitOr, Box::new(right))
+        } else {
+            left
         }
-        Box::new(AST::Expr(xor_expr))
     }
 
-    fn parse_star_expr(&mut self) -> Box<AST> {
-        self.eat(Token::MUL);
-        Box::new(AST::StarExpr(match self.tokenizer.get_current_token() {
+    fn parse_star_expr(&mut self) -> ASTExpr {
+        self.eat(&Token::MUL);
+        ASTExpr::Starred(Box::new(match self.tokenizer.get_current_token() {
             Token::PLUS
             | Token::MINUS
             | Token::TILDE
@@ -947,25 +911,21 @@ impl Parser {
         }))
     }
 
-    fn parse_typedargslist(&mut self) -> Box<AST> {
+    fn parse_typedargslist(&mut self) -> ASTArguments {
         let mut name: Vec<String> = Vec::new();
-        name.push(match self.tokenizer.get_current_token() {
-            Token::ID(name) => name.to_owned(),
-            _ => errors::unexpected_token(&self),
-        });
+        name.push(self.eat_id());
         while *self.tokenizer.get_current_token() == Token::COMMA {
-            self.eat(Token::COMMA);
+            self.eat(&Token::COMMA);
             name.push(match self.tokenizer.get_current_token() {
-                Token::ID(name) => name.to_owned(),
+                Token::ID(_) => self.eat_id(),
                 _ => break,
             });
         }
-        Box::new(AST::TypedArgsList(name))
+        name
     }
 
-    fn parse_testlist_star_expr(&mut self) -> Box<AST> {
-        let mut body: Vec<Box<AST>> = Vec::new();
-        body.push(match self.tokenizer.get_current_token() {
+    fn parse_testlist_star_expr(&mut self) -> ASTExpr {
+        let mut body = vec![match self.tokenizer.get_current_token() {
             Token::MUL => self.parse_star_expr(),
             Token::NOT
             | Token::PLUS
@@ -982,9 +942,9 @@ impl Parser {
             | Token::TRUE
             | Token::FALSE => self.parse_test(),
             _ => errors::unexpected_token(&self),
-        });
+        }];
         while *self.tokenizer.get_current_token() == Token::COMMA {
-            self.eat(Token::COMMA);
+            self.eat(&Token::COMMA);
             body.push(match self.tokenizer.get_current_token() {
                 Token::MUL => self.parse_star_expr(),
                 Token::NOT
@@ -1004,22 +964,27 @@ impl Parser {
                 _ => break,
             });
         }
-        Box::new(AST::TestlistStarExpr(body))
+        if body.len() == 1 {
+            body.swap_remove(0)
+        } else {
+            // ?
+            ASTExpr::Tuple(body)
+        }
     }
 
-    fn parse_break_stmt(&mut self) -> Box<AST> {
-        self.eat(Token::BREAK);
-        Box::new(AST::BreakStmt)
+    fn parse_break_stmt(&mut self) -> ASTStmt {
+        self.eat(&Token::BREAK);
+        ASTStmt::Break
     }
 
-    fn parse_continue_stmt(&mut self) -> Box<AST> {
-        self.eat(Token::CONTINUE);
-        Box::new(AST::ContinueStmt)
+    fn parse_continue_stmt(&mut self) -> ASTStmt {
+        self.eat(&Token::CONTINUE);
+        ASTStmt::Continue
     }
 
-    fn parse_return_stmt(&mut self) -> Box<AST> {
-        self.eat(Token::RETURN);
-        Box::new(AST::ReturnStmt(match self.tokenizer.get_current_token() {
+    fn parse_return_stmt(&mut self) -> ASTStmt {
+        self.eat(&Token::RETURN);
+        ASTStmt::Return(match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -1036,57 +1001,11 @@ impl Parser {
             | Token::TRUE
             | Token::FALSE => Some(self.parse_testlist_star_expr()),
             _ => None,
-        }))
+        })
     }
 
-    fn parse_annassign(&mut self) -> Box<AST> {
-        self.eat(Token::COLON);
-        let test = match self.tokenizer.get_current_token() {
-            Token::NOT
-            | Token::PLUS
-            | Token::MINUS
-            | Token::TILDE
-            | Token::LPAREN
-            | Token::LBRACE
-            | Token::LBRACKET
-            | Token::ID(_)
-            | Token::INT(_)
-            | Token::FLOAT(_)
-            | Token::STRING(_)
-            | Token::NONE
-            | Token::TRUE
-            | Token::FALSE => self.parse_test(),
-            _ => errors::unexpected_token(&self),
-        };
-        let testlist_star_expr = if *self.tokenizer.get_current_token() == Token::EQ {
-            self.eat(Token::EQ);
-            match self.tokenizer.get_current_token() {
-                Token::NOT
-                | Token::PLUS
-                | Token::MINUS
-                | Token::TILDE
-                | Token::MUL
-                | Token::LPAREN
-                | Token::LBRACE
-                | Token::LBRACKET
-                | Token::ID(_)
-                | Token::INT(_)
-                | Token::FLOAT(_)
-                | Token::STRING(_)
-                | Token::NONE
-                | Token::TRUE
-                | Token::FALSE => Some(self.parse_testlist_star_expr()),
-                _ => errors::unexpected_token(&self),
-            }
-        } else {
-            None
-        };
-        Box::new(AST::Annassign(test, testlist_star_expr))
-    }
-
-    fn parse_xor_expr(&mut self) -> Box<AST> {
-        let mut and_expr: Vec<Box<AST>> = Vec::new();
-        and_expr.push(match self.tokenizer.get_current_token() {
+    fn parse_xor_expr(&mut self) -> ASTExpr {
+        let left = match self.tokenizer.get_current_token() {
             Token::PLUS
             | Token::MINUS
             | Token::TILDE
@@ -1101,10 +1020,10 @@ impl Parser {
             | Token::TRUE
             | Token::FALSE => self.parse_and_expr(),
             _ => errors::unexpected_token(&self),
-        });
-        while *self.tokenizer.get_current_token() == Token::XOR {
-            self.eat(Token::XOR);
-            and_expr.push(match self.tokenizer.get_current_token() {
+        };
+        if *self.tokenizer.get_current_token() == Token::XOR {
+            self.eat(&Token::XOR);
+            let right = match self.tokenizer.get_current_token() {
                 Token::PLUS
                 | Token::MINUS
                 | Token::TILDE
@@ -1117,25 +1036,59 @@ impl Parser {
                 | Token::STRING(_)
                 | Token::NONE
                 | Token::TRUE
-                | Token::FALSE => self.parse_and_expr(),
+                | Token::FALSE => self.parse_xor_expr(),
                 _ => errors::unexpected_token(&self),
-            });
+            };
+            ASTExpr::BinOp(Box::new(left), ASTOperator::BitXor, Box::new(right))
+        } else {
+            left
         }
-        Box::new(AST::XorExpr(and_expr))
     }
 
-    fn parse_not_test(&mut self) -> Box<AST> {
+    fn parse_not_test(&mut self) -> ASTExpr {
         match self.tokenizer.get_current_token() {
             Token::NOT => {
-                self.eat(Token::NOT);
-                Box::new(AST::NotTest)
+                self.eat(&Token::NOT);
+                ASTExpr::UnaryOp(
+                    ASTUnaryOp::Not,
+                    match self.tokenizer.get_current_token() {
+                        Token::NOT
+                        | Token::PLUS
+                        | Token::MINUS
+                        | Token::TILDE
+                        | Token::LPAREN
+                        | Token::LBRACE
+                        | Token::LBRACKET
+                        | Token::ID(_)
+                        | Token::INT(_)
+                        | Token::FLOAT(_)
+                        | Token::STRING(_)
+                        | Token::NONE
+                        | Token::TRUE
+                        | Token::FALSE => Box::new(self.parse_not_test()),
+                        _ => errors::unexpected_token(&self),
+                    },
+                )
             }
-        };( self.eat()
+            Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_comparison(),
+            _ => errors::unexpected_token(&self),
+        }
     }
 
-    fn parse_and_expr(&mut self) -> Box<AST> {
-        let mut shift_expr: Vec<Box<AST>> = Vec::new();
-        shift_expr.push(match self.tokenizer.get_current_token() {
+    fn parse_and_expr(&mut self) -> ASTExpr {
+        let left = match self.tokenizer.get_current_token() {
             Token::PLUS
             | Token::MINUS
             | Token::TILDE
@@ -1150,10 +1103,10 @@ impl Parser {
             | Token::TRUE
             | Token::FALSE => self.parse_shift_expr(),
             _ => errors::unexpected_token(&self),
-        });
-        while *self.tokenizer.get_current_token() == Token::AMP {
-            self.eat(Token::AMP);
-            shift_expr.push(match self.tokenizer.get_current_token() {
+        };
+        if *self.tokenizer.get_current_token() == Token::AMP {
+            self.eat(&Token::AMP);
+            let right = match self.tokenizer.get_current_token() {
                 Token::PLUS
                 | Token::MINUS
                 | Token::TILDE
@@ -1166,15 +1119,17 @@ impl Parser {
                 | Token::STRING(_)
                 | Token::NONE
                 | Token::TRUE
-                | Token::FALSE => self.parse_shift_expr(),
+                | Token::FALSE => self.parse_and_expr(),
                 _ => errors::unexpected_token(&self),
-            });
+            };
+            ASTExpr::BinOp(Box::new(left), ASTOperator::BitAnd, Box::new(right))
+        } else {
+            left
         }
-        Box::new(AST::AndExpr(shift_expr))
     }
 
-    fn parse_shift_expr(&mut self) -> Box<AST> {
-        let arith_expr = match self.tokenizer.get_current_token() {
+    fn parse_shift_expr(&mut self) -> ASTExpr {
+        let left = match self.tokenizer.get_current_token() {
             Token::PLUS
             | Token::MINUS
             | Token::TILDE
@@ -1190,48 +1145,359 @@ impl Parser {
             | Token::FALSE => self.parse_arith_expr(),
             _ => errors::unexpected_token(&self),
         };
-        let mut rest: Vec<(Box<AST>, Box<AST>)> = Vec::new();
+        match self.tokenizer.get_current_token() {
+            t @ Token::LSHIFT | t @ Token::RSHIFT => {
+                let t = t.clone();
+                self.eat(&t);
+                let right = match self.tokenizer.get_current_token() {
+                    Token::PLUS
+                    | Token::MINUS
+                    | Token::TILDE
+                    | Token::LPAREN
+                    | Token::LBRACE
+                    | Token::LBRACKET
+                    | Token::ID(_)
+                    | Token::INT(_)
+                    | Token::FLOAT(_)
+                    | Token::STRING(_)
+                    | Token::NONE
+                    | Token::TRUE
+                    | Token::FALSE => self.parse_shift_expr(),
+                    _ => errors::unexpected_token(&self),
+                };
+                ASTExpr::BinOp(
+                    Box::new(left),
+                    if t == Token::LSHIFT {
+                        ASTOperator::LShift
+                    } else {
+                        ASTOperator::RShift
+                    },
+                    Box::new(right),
+                )
+            }
+            _ => left,
+        }
+    }
+
+    fn parse_arith_expr(&mut self) -> ASTExpr {
+        let left = match self.tokenizer.get_current_token() {
+            Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_term(),
+            _ => errors::unexpected_token(&self),
+        };
+        match self.tokenizer.get_current_token() {
+            t @ Token::PLUS | t @ Token::MINUS => {
+                let t = t.clone();
+                self.eat(&t);
+                let right = match self.tokenizer.get_current_token() {
+                    Token::PLUS
+                    | Token::MINUS
+                    | Token::TILDE
+                    | Token::LPAREN
+                    | Token::LBRACE
+                    | Token::LBRACKET
+                    | Token::ID(_)
+                    | Token::INT(_)
+                    | Token::FLOAT(_)
+                    | Token::STRING(_)
+                    | Token::NONE
+                    | Token::TRUE
+                    | Token::FALSE => self.parse_arith_expr(),
+                    _ => errors::unexpected_token(&self),
+                };
+                ASTExpr::BinOp(
+                    Box::new(left),
+                    if t == Token::PLUS {
+                        ASTOperator::Add
+                    } else {
+                        ASTOperator::Sub
+                    },
+                    Box::new(right),
+                )
+            }
+            _ => left,
+        }
+    }
+
+    fn parse_comparison(&mut self) -> ASTExpr {
+        let left = match self.tokenizer.get_current_token() {
+            Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_expr(),
+            _ => errors::unexpected_token(&self),
+        };
+        let mut ops: Vec<ASTCmpOp> = Vec::new();
+        let mut comparators: Vec<ASTExpr> = Vec::new();
         loop {
-            let op = match *self.tokenizer.get_current_token() {
-                Token::LSHIFT => {
-                    self.eat(Token::LSHIFT);
-                    Box::new(AST::Lshift)
-                }
-                Token::RSHIFT => {
-                    self.eat(Token::RSHIFT);
-                    Box::new(AST::Rshift)
+            match self.tokenizer.get_current_token() {
+                Token::LT
+                | Token::GT
+                | Token::EQEQ
+                | Token::GEQ
+                | Token::LEQ
+                | Token::NEQ
+                | Token::IN
+                | Token::NOT
+                | Token::IS => {
+                    ops.push(self.parse_comp_op());
+                    comparators.push(match self.tokenizer.get_current_token() {
+                        Token::PLUS
+                        | Token::MINUS
+                        | Token::TILDE
+                        | Token::LPAREN
+                        | Token::LBRACE
+                        | Token::LBRACKET
+                        | Token::ID(_)
+                        | Token::INT(_)
+                        | Token::FLOAT(_)
+                        | Token::STRING(_)
+                        | Token::NONE
+                        | Token::TRUE
+                        | Token::FALSE => self.parse_comparison(),
+                        _ => errors::unexpected_token(&self),
+                    });
                 }
                 _ => break,
             };
-            rest.push((op, match self.tokenizer.get_current_token() {
-                Token::PLUS
-                | Token::MINUS
-                | Token::TILDE
-                | Token::LPAREN
-                | Token::LBRACE
-                | Token::LBRACKET
-                | Token::ID(_)
-                | Token::INT(_)
-                | Token::FLOAT(_)
-                | Token::STRING(_)
-                | Token::NONE
-                | Token::TRUE
-                | Token::FALSE => self.parse_arith_expr(),
-                _ => errors::unexpected_token(&self),
-            }));
         }
-        Box::new(AST::ShiftExpr(arith_expr, rest))
+        // assert_eq!(ops.len(), comparators.len());
+        if ops.len() == 0 {
+            left
+        } else {
+            ASTExpr::Compare(Box::new(left), ops, comparators)
+        }
     }
 
-    fn parse_arith_expr(&mut self) -> Box<AST> {
+    fn parse_term(&mut self) -> ASTExpr {
+        let left = match self.tokenizer.get_current_token() {
+            Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_factor(),
+            _ => errors::unexpected_token(&self),
+        };
+        match self.tokenizer.get_current_token() {
+            t @ Token::MUL | t @ Token::DIV | t @ Token::MOD => {
+                let t = t.clone();
+                self.eat(&t);
+                let right = match self.tokenizer.get_current_token() {
+                    Token::PLUS
+                    | Token::MINUS
+                    | Token::TILDE
+                    | Token::LPAREN
+                    | Token::LBRACE
+                    | Token::LBRACKET
+                    | Token::ID(_)
+                    | Token::INT(_)
+                    | Token::FLOAT(_)
+                    | Token::STRING(_)
+                    | Token::NONE
+                    | Token::TRUE
+                    | Token::FALSE => self.parse_term(),
+                    _ => errors::unexpected_token(&self),
+                };
+                ASTExpr::BinOp(
+                    Box::new(left),
+                    match t {
+                        Token::MUL => ASTOperator::Mult,
+                        Token::DIV => ASTOperator::Div,
+                        Token::MOD => ASTOperator::Mod,
+                        _ => errors::unexpected_token(&self),
+                    },
+                    Box::new(right),
+                )
+            }
+            _ => left,
+        }
+    }
+
+    fn parse_comp_op(&mut self) -> ASTCmpOp {
+        match self.tokenizer.get_current_token() {
+            Token::LT => {
+                self.eat(&Token::LT);
+                ASTCmpOp::Lt
+            }
+            Token::GT => {
+                self.eat(&Token::GT);
+                ASTCmpOp::Gt
+            }
+            Token::LEQ => {
+                self.eat(&Token::LEQ);
+                ASTCmpOp::LtE
+            }
+            Token::GEQ => {
+                self.eat(&Token::GEQ);
+                ASTCmpOp::GtE
+            }
+            Token::EQEQ => {
+                self.eat(&Token::EQEQ);
+                ASTCmpOp::Eq
+            }
+            Token::NEQ => {
+                self.eat(&Token::NEQ);
+                ASTCmpOp::NotEq
+            }
+            Token::IN => {
+                self.eat(&Token::IN);
+                ASTCmpOp::In
+            }
+            Token::NOT => {
+                self.eat(&Token::NOT);
+                self.eat(&Token::IN);
+                ASTCmpOp::NotIn
+            }
+            Token::IS => {
+                self.eat(&Token::IS);
+                match self.tokenizer.get_current_token() {
+                    Token::NOT => {
+                        self.eat(&Token::NOT);
+                        ASTCmpOp::IsNot
+                    }
+                    _ => ASTCmpOp::Is,
+                }
+            }
+            _ => errors::unexpected_token(&self),
+        }
+    }
+
+    fn parse_factor(&mut self) -> ASTExpr {
+        match self.tokenizer.get_current_token() {
+            t @ Token::PLUS | t @ Token::MINUS | t @ Token::TILDE => {
+                let t = t.clone();
+                self.eat(&t);
+                let operand = match self.tokenizer.get_current_token() {
+                    Token::PLUS
+                    | Token::MINUS
+                    | Token::TILDE
+                    | Token::LPAREN
+                    | Token::LBRACE
+                    | Token::LBRACKET
+                    | Token::ID(_)
+                    | Token::INT(_)
+                    | Token::FLOAT(_)
+                    | Token::STRING(_)
+                    | Token::NONE
+                    | Token::TRUE
+                    | Token::FALSE => self.parse_factor(),
+                    _ => errors::unexpected_token(&self),
+                };
+                ASTExpr::UnaryOp(
+                    match t {
+                        Token::PLUS => ASTUnaryOp::UAdd,
+                        Token::MINUS => ASTUnaryOp::USub,
+                        Token::TILDE => ASTUnaryOp::Invert,
+                        _ => errors::unexpected_token(&self),
+                    },
+                    Box::new(operand),
+                )
+            }
+            Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_atom_expr(),
+            _ => errors::unexpected_token(&self)
+        }
+    }
+
+    fn parse_atom_expr(&mut self) -> ASTExpr {
+        let mut atom = match self.tokenizer.get_current_token() {
+            Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_atom(),
+            _ => errors::unexpected_token(&self)
+        };
+        // trailerはCallかSubscriptで、atomや直前のtrailerの結果を包んでいく形になる
+        loop {
+            match self.tokenizer.get_current_token() {
+                Token::LPAREN => {
+                    // function call
+                    self.eat(&Token::LPAREN);
+                    let args = self.parse_arglist();
+                    self.eat(&Token::RPAREN);
+                    atom = ASTExpr::Call(Box::new(atom), args);
+                }
+                Token::LBRACKET => {
+                    // list/set/dict subscription
+                    self.eat(&Token::LBRACKET);
+                    let slice = self.parse_subscriptlist();
+                    self.eat(&Token::RBRACKET);
+                    atom = ASTExpr::Subscript(Box::new(atom), slice);
+                }
+                _ => break
+            }
+        }
+        atom
+    }
+
+    fn parse_atom(&mut self) -> ASTExpr {
         unimplemented!();
     }
 
-    fn eat(&mut self, expected: Token) {
-        if *self.tokenizer.get_current_token() != expected {
+    fn parse_arglist(&mut self) -> Vec<ASTExpr> {
+        unimplemented!();
+    }
+
+    fn parse_subscriptlist(&mut self) -> ASTSlice {
+        unimplemented!();
+    }
+
+    fn eat(&mut self, expected: &Token) {
+        if self.tokenizer.get_current_token() != expected {
             errors::unexpected_token(&self);
         } else {
             self.tokenizer.next_token();
         }
+    }
+
+    fn eat_id(&mut self) -> String {
+        let name = match self.tokenizer.get_current_token() {
+            Token::ID(name) => name.to_owned(),
+            _ => errors::unexpected_token(&self),
+        };
+        self.tokenizer.next_token();
+        name
     }
 }

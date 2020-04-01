@@ -32,8 +32,8 @@ simple_stmt: small_stmt NEWLINE;
 そもそもセミコロン存在しなかったわ
 *)
 small_stmt: expr_stmt | del_stmt | pass_stmt | flow_stmt | global_stmt;
-expr_stmt: testlist_star_expr (annassign | ('=' testlist_star_expr)+ );
-annassign: ':' test ['=' testlist_star_expr];
+expr_stmt: testlist_star_expr [('=' testlist_star_expr)+];
+(* annassign: ':' test ['=' testlist_star_expr]; <- type "ann"otation... *)
 testlist_star_expr: (test|star_expr) (',' (test|star_expr))* [','];
 del_stmt: 'del' exprlist;
 pass_stmt: 'pass';

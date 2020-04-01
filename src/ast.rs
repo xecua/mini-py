@@ -23,10 +23,9 @@ pub enum ASTConstant {
 // AST parts
 pub enum ASTStmt {
     FuncDef(
-        String,          // name
-        ASTArguments,    // arguments
-        Vec<ASTStmt>,    // body
-        Option<ASTExpr>, // returns
+        String,       // name
+        ASTArguments, // arguments
+        Vec<ASTStmt>, // body
     ),
     Return(
         Option<ASTExpr>, // value
@@ -37,11 +36,6 @@ pub enum ASTStmt {
     Assign(
         Vec<ASTExpr>, // targets
         ASTExpr,      // value
-    ),
-    AnnAssign(
-        ASTExpr,         // target
-        Option<ASTExpr>, // value
-        ASTInt,          // `'simple' indicates that we annotate simple name without parens`
     ),
     For(
         ASTExpr,      // target
@@ -55,7 +49,7 @@ pub enum ASTStmt {
     If(
         ASTExpr,      // test
         Vec<ASTStmt>, // body
-        Vec<ASTStmt>, // else
+        Vec<ASTStmt>, // orelse
     ),
     Global(
         Vec<ASTIdentifier>, // names
@@ -81,6 +75,11 @@ pub enum ASTExpr {
     UnaryOp(
         ASTUnaryOp,   // op
         Box<ASTExpr>, // operand
+    ),
+    IfExp(
+        Box<ASTExpr>, // test
+        Box<ASTExpr>, // body
+        Box<ASTExpr>, // orelse
     ),
     Dict(
         Vec<ASTExpr>, // keys
@@ -131,40 +130,40 @@ pub enum ASTExpr {
     Attribute(
         Box<ASTExpr>,   // value
         ASTIdentifier,  // attr,
-        ASTExprContext, // ctx <- ???
+        // ASTExprContext, // ctx <- ???
     ),
     Subscript(
         Box<ASTExpr>,   // value
         ASTSlice,       // slice
-        ASTExprContext, // ctx <- ???
+        // ASTExprContext, // ctx <- ???
     ),
     Starred(
         Box<ASTExpr>,   // value
-        ASTExprContext, // ctx <- ???
+        // ASTExprContext, // ctx <- ???
     ),
     Name(
         ASTIdentifier,  // id
-        ASTExprContext, // ctx <- ???
+        // ASTExprContext, // ctx <- ???
     ),
     List(
         Vec<ASTExpr>,   // elts
-        ASTExprContext, // ctx <- ???
+        // ASTExprContext, // ctx <- ???
     ),
     Tuple(
         Vec<ASTExpr>,   // elts
-        ASTExprContext, // ctx <- ???
+        // ASTExprContext, // ctx <- ???
     ),
 }
 
 // https://stackoverflow.com/questions/6679171/python-ast-several-semantics-unclear-e-g-expr-context
 // 変数の位置
-pub enum ASTExprContext {
-    Load,     // 左辺値
-    Store,    // 右辺値
-    Del,      // del文の対象
-    AugLoad,  // 実引数?
-    AugStore, // 仮引数?
-}
+// pub enum ASTExprContext {
+//     Load,     // 左辺値
+//     Store,    // 右辺値
+//     Del,      // del文の対象
+//     AugLoad,  // 実引数?
+//     AugStore, // 仮引数?
+// }
 
 pub enum ASTSlice {
     Slice(
@@ -198,10 +197,9 @@ pub enum ASTOperator {
     BitAnd,
 }
 
-// invert = ~, not = `not`
 pub enum ASTUnaryOp {
-    Invert,
-    Not,
+    Invert, // ~
+    Not,    // `not`
     UAdd,
     USub,
 }
@@ -225,9 +223,8 @@ pub type ASTComprehension = (
     Vec<ASTExpr>, // ifs
 );
 
-pub type ASTArguments = (
-    Vec<ASTArg>, // args
-);
+pub type ASTArguments = Vec<ASTArg>; // args
+
 // arguments = (
 //   arg* posonlyargs, : positional only arguments(before /)
 //   arg* args, : normal arguments
@@ -240,6 +237,4 @@ pub type ASTArguments = (
 // def hoge(positional_only_argument1, positional_only_argument2, /, argument1, argument2, *[vararg], keyword_only_argument1, keyword_only_argument2, **kwarg)
 // 今回は普通にargsのみ利用可能とする
 
-pub type ASTArg = (
-    ASTIdentifier, // arg
-);
+pub type ASTArg = ASTIdentifier; // arg
