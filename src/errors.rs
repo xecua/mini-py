@@ -16,6 +16,15 @@ pub fn invalid_syntax(_tokenizer: &Tokenizer) -> ! {
 }
 
 // parser
-pub fn unexpected_token(_parser: &Parser) -> ! {
-    panic!();
+pub fn unexpected_token(parser: &Parser) -> ! {
+    eprintln!(
+        "Syntax Error:unexpected token {:?} at {} line {}, column {}\n{}\n{}^",
+        parser.get_current_token(),
+        parser.get_file_name(),
+        parser.get_current_line(),
+        parser.get_current_column(),
+        parser.get_current_line_content(),
+        " ".repeat(parser.get_current_line_content().len())
+    );
+    std::process::exit(1);
 }

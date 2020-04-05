@@ -1935,4 +1935,33 @@ impl Parser {
         self.tokenizer.next_token();
         name
     }
+
+    pub fn get_file_name(&self) -> &String {
+        self.tokenizer.get_file_name()
+    }
+
+    pub fn get_current_token(&self) -> &Token {
+        self.tokenizer.get_current_token()
+    }
+
+    pub fn get_current_char_u8(&self) -> Option<u8> {
+        self.tokenizer.get_current_char_u8()
+    }
+
+    pub fn get_current_char(&self) -> Option<char> {
+        self.tokenizer.get_current_char()
+    }
+
+    pub fn get_current_line(&self) -> usize {
+        self.tokenizer.get_current_line()
+    }
+
+    pub fn get_current_column(&self) -> usize {
+        self.tokenizer.get_current_column()
+    }
+
+    pub fn get_current_line_content(&self) -> &String {
+        self.tokenizer.get_current_line_content()
+    }
+
 }

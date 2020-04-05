@@ -40,6 +40,30 @@ impl Tokenizer {
         &self.current_token
     }
 
+    pub fn get_file_name(&self) -> &String {
+        self.char_stream.get_file_name()
+    }
+
+    pub fn get_current_char_u8(&self) -> Option<u8> {
+        self.char_stream.get_current_char_u8()
+    }
+
+    pub fn get_current_char(&self) -> Option<char> {
+        self.char_stream.get_current_char()
+    }
+
+    pub fn get_current_line(&self) -> usize {
+        self.char_stream.get_current_line()
+    }
+
+    pub fn get_current_column(&self) -> usize {
+        self.char_stream.get_current_column()
+    }
+
+    pub fn get_current_line_content(&self) -> &String {
+        self.char_stream.get_current_line_content()
+    }
+
     pub fn next_token(&mut self) {
         self.token_buf.clear(); // clear token buffer
 
