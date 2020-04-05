@@ -2,7 +2,7 @@ use crate::ast::*;
 use crate::parser::Parser;
 
 #[test]
-fn test_test_1_py() {
+fn test_test_1() {
     let mut parser = Parser::new("testcase/test_1.py").unwrap();
     let ast = parser.parse();
     assert_eq!(ast, vec![
@@ -17,7 +17,7 @@ fn test_test_1_py() {
 }
 
 #[test]
-fn test_test_2_py() {
+fn test_test_2() {
     let mut parser = Parser::new("testcase/test_2.py").unwrap();
     let ast = parser.parse();
     assert_eq!(ast, vec![
@@ -47,7 +47,7 @@ fn test_test_2_py() {
 }
 
 #[test]
-fn test_fizzbuzz_py() {
+fn test_fizzbuzz() {
     let mut parser = Parser::new("testcase/fizzbuzz.py").unwrap();
     let ast = parser.parse();
     assert_eq!(ast, vec![ASTStmt::For(
