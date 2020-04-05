@@ -1,5 +1,5 @@
-use crate::tokenizer::Tokenizer;
 use crate::parser::Parser;
+use crate::tokenizer::Tokenizer;
 
 // tokenizer
 pub fn wrong_indent(_tokenizer: &Tokenizer) -> ! {

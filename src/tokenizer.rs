@@ -1,5 +1,5 @@
-use crate::errors;
 use crate::char_stream::CharStream;
+use crate::errors;
 use crate::token::Token;
 
 // 字句解析器

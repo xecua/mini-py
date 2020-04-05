@@ -2,8 +2,8 @@ use clap::{App, Arg, SubCommand};
 use std::io;
 
 use minipython::char_stream::CharStream;
-use minipython::tokenizer::Tokenizer;
 use minipython::parser::Parser;
+use minipython::tokenizer::Tokenizer;
 
 fn main() -> io::Result<()> {
     let matches = App::new("minipython")
@@ -22,7 +22,10 @@ fn main() -> io::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("tokenize") {
         Tokenizer::new(matches.value_of("file").unwrap())?.tokenize();
     } else if let Some(matches) = matches.subcommand_matches("parse") {
-        println!("{:?}", Parser::new(matches.value_of("file").unwrap())?.parse());
+        println!(
+            "{:?}",
+            Parser::new(matches.value_of("file").unwrap())?.parse()
+        );
     }
 
     Ok(())

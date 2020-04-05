@@ -15,12 +15,12 @@ pub type ASTString = String;
 // 色々アレなので数値は32bitの範囲で...
 #[derive(Debug, PartialEq)]
 pub enum ASTConstant {
-    Int(i32),
-    Float(f32),
+    Int(isize),
+    Float(f64),
     String(String),
     None,
     True,
-    False
+    False,
 }
 // ???
 // pub type ASTObject;
@@ -62,7 +62,7 @@ pub enum ASTStmt {
     ),
     Print(
         Vec<ASTExpr>, // values
-        bool, // nl(ends with comma then not end with \n)
+        bool,         // nl(ends with comma then not end with \n)
     ),
     Expr(
         ASTExpr, // value
@@ -133,8 +133,8 @@ pub enum ASTExpr {
     //     Vec<ASTExpr>, // values
     // ),
     Constant(
-        ASTConstant,       // value
-        // Option<ASTString>, // kind
+        ASTConstant, // value
+                     // Option<ASTString>, // kind
     ),
     //  -- the following expression can appear in assignment context
     // ???

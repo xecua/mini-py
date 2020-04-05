@@ -1954,7 +1954,7 @@ impl Parser {
         name
     }
 
-    fn eat_int(&mut self) -> i32 {
+    fn eat_int(&mut self) -> isize {
         let num = *(match self.tokenizer.get_current_token() {
             Token::INT(num) => num,
             _ => errors::unexpected_token(&self),
@@ -1963,7 +1963,7 @@ impl Parser {
         num
     }
 
-    fn eat_float(&mut self) -> f32 {
+    fn eat_float(&mut self) -> f64 {
         let num = *(match self.tokenizer.get_current_token() {
             Token::FLOAT(num) => num,
             _ => errors::unexpected_token(&self),
