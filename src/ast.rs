@@ -12,15 +12,21 @@ pub type ASTIdentifier = String;
 pub type ASTInt = i32;
 pub type ASTString = String;
 // ハードコードされた値?
+// 色々アレなので数値は32bitの範囲で...
+#[derive(Debug)]
 pub enum ASTConstant {
     Int(i32),
     Float(f32),
     String(String),
+    None,
+    True,
+    False
 }
 // ???
 // pub type ASTObject;
 
 // AST parts
+#[derive(Debug)]
 pub enum ASTStmt {
     FuncDef(
         String,       // name
@@ -54,6 +60,10 @@ pub enum ASTStmt {
     Global(
         Vec<ASTIdentifier>, // names
     ),
+    Print(
+        Vec<ASTExpr>, // values
+        bool, // nl(ends with comma then not end with \n)
+    ),
     Expr(
         ASTExpr, // value
     ),
@@ -62,6 +72,7 @@ pub enum ASTStmt {
     Continue,
 }
 
+#[derive(Debug)]
 pub enum ASTExpr {
     BoolOp(
         ASTBoolOp,    // op
@@ -89,19 +100,19 @@ pub enum ASTExpr {
         Vec<ASTExpr>, // elts
     ),
     // そもそも内包表記あるんか????
-    ListComp(
-        Box<ASTExpr>,          // elt
-        Vec<ASTComprehension>, // generators
-    ),
-    SetComp(
-        Box<ASTExpr>,          // elt
-        Vec<ASTComprehension>, // generators
-    ),
-    DictComp(
-        Box<ASTExpr>,          // key
-        Box<ASTExpr>,          // value
-        Vec<ASTComprehension>, // generators
-    ),
+    // ListComp(
+    //     Box<ASTExpr>,          // elt
+    //     Vec<ASTComprehension>, // generators
+    // ),
+    // SetComp(
+    //     Box<ASTExpr>,          // elt
+    //     Vec<ASTComprehension>, // generators
+    // ),
+    // DictComp(
+    //     Box<ASTExpr>,          // key
+    //     Box<ASTExpr>,          // value
+    //     Vec<ASTComprehension>, // generators
+    // ),
     Compare(
         Box<ASTExpr>,  // left
         Vec<ASTCmpOp>, // ops
@@ -113,45 +124,45 @@ pub enum ASTExpr {
                       // omit keywords
     ),
     // ???
-    FormattedValue(
-        Box<ASTExpr>,         // value,
-        Option<ASTInt>,       // conversion,
-        Option<Box<ASTExpr>>, // format_spec
-    ),
-    JoinedStr(
-        Vec<ASTExpr>, // values
-    ),
+    // FormattedValue(
+    //     Box<ASTExpr>,         // value,
+    //     Option<ASTInt>,       // conversion,
+    //     Option<Box<ASTExpr>>, // format_spec
+    // ),
+    // JoinedStr(
+    //     Vec<ASTExpr>, // values
+    // ),
     Constant(
         ASTConstant,       // value
-        Option<ASTString>, // kind
+        // Option<ASTString>, // kind
     ),
     //  -- the following expression can appear in assignment context
     // ???
-    Attribute(
-        Box<ASTExpr>,   // value
-        ASTIdentifier,  // attr,
-        // ASTExprContext, // ctx <- ???
-    ),
+    // Attribute(
+    //     Box<ASTExpr>, // value
+    //     ASTIdentifier, // attr,
+    //                   // ASTExprContext, // ctx <- ???
+    // ),
     Subscript(
-        Box<ASTExpr>,   // value
-        ASTSlice,       // slice
-        // ASTExprContext, // ctx <- ???
+        Box<ASTExpr>, // value
+        ASTSlice,     // slice
+                      // ASTExprContext, // ctx <- ???
     ),
     Starred(
-        Box<ASTExpr>,   // value
-        // ASTExprContext, // ctx <- ???
+        Box<ASTExpr>, // value
+                      // ASTExprContext, // ctx <- ???
     ),
     Name(
-        ASTIdentifier,  // id
-        // ASTExprContext, // ctx <- ???
+        ASTIdentifier, // id
+                       // ASTExprContext, // ctx <- ???
     ),
     List(
-        Vec<ASTExpr>,   // elts
-        // ASTExprContext, // ctx <- ???
+        Vec<ASTExpr>, // elts
+                      // ASTExprContext, // ctx <- ???
     ),
     Tuple(
-        Vec<ASTExpr>,   // elts
-        // ASTExprContext, // ctx <- ???
+        Vec<ASTExpr>, // elts
+                      // ASTExprContext, // ctx <- ???
     ),
 }
 
@@ -165,25 +176,28 @@ pub enum ASTExpr {
 //     AugStore, // 仮引数?
 // }
 
+#[derive(Debug)]
 pub enum ASTSlice {
     Slice(
         Option<Box<ASTExpr>>, // lower
         Option<Box<ASTExpr>>, // upper
         Option<Box<ASTExpr>>, // step
     ),
-    ExtSlice(
-        Vec<ASTSlice>, // dims
-    ),
+    // ExtSlice(
+    //     Vec<ASTSlice>, // dims
+    // ),
     Index(
         Box<ASTExpr>, // value
     ),
 }
 
+#[derive(Debug)]
 pub enum ASTBoolOp {
     And,
     Or,
 }
 
+#[derive(Debug)]
 pub enum ASTOperator {
     Add,
     Sub,
@@ -197,6 +211,7 @@ pub enum ASTOperator {
     BitAnd,
 }
 
+#[derive(Debug)]
 pub enum ASTUnaryOp {
     Invert, // ~
     Not,    // `not`
@@ -204,6 +219,7 @@ pub enum ASTUnaryOp {
     USub,
 }
 
+#[derive(Debug)]
 pub enum ASTCmpOp {
     Eq,
     NotEq,

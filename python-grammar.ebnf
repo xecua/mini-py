@@ -31,7 +31,7 @@ simple_stmt: small_stmt NEWLINE;
 って感じ?~~
 そもそもセミコロン存在しなかったわ
 *)
-small_stmt: expr_stmt | del_stmt | pass_stmt | flow_stmt | global_stmt;
+small_stmt: expr_stmt | del_stmt | pass_stmt | flow_stmt | global_stmt | print_stmt;
 expr_stmt: testlist_star_expr [('=' testlist_star_expr)+];
 (* annassign: ':' test ['=' testlist_star_expr]; <- type "ann"otation... *)
 testlist_star_expr: (test|star_expr) (',' (test|star_expr))* [','];
@@ -42,6 +42,7 @@ break_stmt: 'break';
 continue_stmt: 'continue';
 return_stmt: 'return' [testlist_star_expr];
 global_stmt: 'global' NAME (',' NAME)*;
+print_stmt: 'print' test (',' test)* [','];
 
 compound_stmt: if_stmt | while_stmt | for_stmt | funcdef;
 if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite];
@@ -65,23 +66,32 @@ arith_expr: term (('+'|'-') term)*;
 term: factor (('*'|'/'|'%') factor)*;
 factor: ('+'|'-'|'~') factor | atom_expr;
 atom_expr: atom trailer*;
+(* list/tuple内包表記はパスで... *)
+  (* '(' [testlist_comp] ')' |
+  '[' [testlist_comp] ']' | *)
 atom: (
-  '(' [testlist_comp] ')' |
-  '[' [testlist_comp] ']' |
+  '(' [testlist_star_expr] ')' |
+  '[' [testlist_star_expr] ']' | 
   '{' [dictorsetmaker] '}' |
   NAME | NUMBER | STRING+ | 'None' | 'True' | 'False'
 );
-testlist_comp: (test|star_expr) ( comp_for | (',' (test|star_expr))* [','] );
-trailer: '(' [arglist] ')' | '[' subscriptlist ']';
-subscriptlist: subscript (',' subscript)* [','];
+(* testlist_comp: (test|star_expr) ( comp_for | (',' (test|star_expr))* [','] ); *)
+(* trailer: '(' [arglist] ')' | '[' subscriptlist ']';
+subscriptlist: subscript (',' subscript)* [',']; <- for extended slice? *)
+trailer: '(' [arglist] ')' | '[' subscript ']';
 subscript: test | [test] ':' [test] [sliceop];
 sliceop: ':' [test];
 exprlist: (expr|star_expr) (',' (expr|star_expr))* [','];
 testlist: test (',' test)* [','];
 dictorsetmaker: (
+  test ':' test (',' test ':' test)* [','] |
+  (test | star_expr) (',' (test | star_expr))* [',']
+);
+(* dict内包表記/generator式はパスで... *)
+(* dictorsetmaker: (
   (test ':' test (comp_for | (',' test ':' test)* [','])) |
   ((test | star_expr) (comp_for | (',' (test | star_expr))* [',']))
-);
+); *)
 (*
 先頭がfirst(test)だった場合
 1. testをparse
@@ -90,12 +100,15 @@ dictorsetmaker: (
   違うなら後者
 *)
 
+(* 内包表記削除→testのみ、キーワード引数なし→右側なし、よってtestと同値
+このためarglistはtestlistと同値に
 arglist: argument (',' argument)* [','];
-argument: ( test [comp_for] | test '=' test);
+argument: ( test [comp_for] | test '=' test); *)
+arglist: test (',' test)* [','];
 
-comp_iter: comp_for | comp_if;
+(* comp_iter: comp_for | comp_if;
 comp_for: 'for' exprlist 'in' or_test [comp_iter];
-comp_if: 'if' or_test [comp_iter];
+comp_if: 'if' or_test [comp_iter]; *)
 
 (*
 デフォルト引数あり、list argumentあり

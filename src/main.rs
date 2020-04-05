@@ -11,7 +11,7 @@ fn main() -> io::Result<()> {
             SubCommand::with_name("lc").arg(Arg::with_name("file").required(true)),
             SubCommand::with_name("apos").arg(Arg::with_name("file").required(true)),
             SubCommand::with_name("tokenize").arg(Arg::with_name("file").required(true)),
-            SubCommand::with_name("parser").arg(Arg::with_name("file").required(true)),
+            SubCommand::with_name("parse").arg(Arg::with_name("file").required(true)),
         ])
         .get_matches();
 
@@ -22,7 +22,7 @@ fn main() -> io::Result<()> {
     } else if let Some(matches) = matches.subcommand_matches("tokenize") {
         Tokenizer::new(matches.value_of("file").unwrap())?.tokenize();
     } else if let Some(matches) = matches.subcommand_matches("parse") {
-        Parser::new(matches.value_of("file").unwrap())?.parse();
+        println!("{:?}", Parser::new(matches.value_of("file").unwrap())?.parse());
     }
 
     Ok(())

@@ -55,6 +55,7 @@ impl Parser {
                 | Token::CONTINUE
                 | Token::RETURN
                 | Token::GLOBAL
+                | Token::PRINT
                 | Token::IF
                 | Token::WHILE
                 | Token::FOR
@@ -88,7 +89,8 @@ impl Parser {
             | Token::BREAK
             | Token::CONTINUE
             | Token::RETURN
-            | Token::GLOBAL => self.parse_simple_stmt(),
+            | Token::GLOBAL
+            | Token::PRINT => self.parse_simple_stmt(),
             _ => errors::unexpected_token(&self),
         }
     }
@@ -148,6 +150,7 @@ impl Parser {
             | Token::CONTINUE
             | Token::RETURN
             | Token::GLOBAL
+            | Token::PRINT
             | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
@@ -199,6 +202,7 @@ impl Parser {
                     | Token::CONTINUE
                     | Token::RETURN
                     | Token::GLOBAL
+                    | Token::PRINT
                     | Token::NEWLINE => self.parse_suite(),
                     _ => errors::unexpected_token(&self),
                 }
@@ -230,7 +234,8 @@ impl Parser {
             | Token::BREAK
             | Token::CONTINUE
             | Token::RETURN
-            | Token::GLOBAL => self.parse_small_stmt(),
+            | Token::GLOBAL
+            | Token::PRINT => self.parse_small_stmt(),
             _ => errors::unexpected_token(&self),
         };
         self.eat(&Token::NEWLINE);
@@ -328,6 +333,7 @@ impl Parser {
                         | Token::CONTINUE
                         | Token::RETURN
                         | Token::GLOBAL
+                        | Token::PRINT
                         | Token::IF
                         | Token::WHILE
                         | Token::FOR
@@ -361,7 +367,8 @@ impl Parser {
             | Token::BREAK
             | Token::CONTINUE
             | Token::RETURN
-            | Token::GLOBAL => vec![self.parse_small_stmt()],
+            | Token::GLOBAL
+            | Token::PRINT => vec![self.parse_small_stmt()],
             _ => errors::unexpected_token(&self),
         }
     }
@@ -408,6 +415,7 @@ impl Parser {
             | Token::CONTINUE
             | Token::RETURN
             | Token::GLOBAL
+            | Token::PRINT
             | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
@@ -481,6 +489,7 @@ impl Parser {
             | Token::CONTINUE
             | Token::RETURN
             | Token::GLOBAL
+            | Token::PRINT
             | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
@@ -517,6 +526,7 @@ impl Parser {
             | Token::CONTINUE
             | Token::RETURN
             | Token::GLOBAL
+            | Token::PRINT
             | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
@@ -544,6 +554,7 @@ impl Parser {
             Token::PASS => self.parse_pass_stmt(),
             Token::BREAK | Token::CONTINUE | Token::RETURN => self.parse_flow_stmt(),
             Token::GLOBAL => self.parse_global_stmt(),
+            Token::PRINT => self.parse_print_stmt(),
             _ => errors::unexpected_token(&self),
         }
     }
@@ -587,7 +598,11 @@ impl Parser {
                 _ => errors::unexpected_token(&self),
             });
         }
-        ASTExpr::BoolOp(ASTBoolOp::Or, and_test)
+        if and_test.len() == 1 {
+            and_test.swap_remove(0)
+        } else {
+            ASTExpr::BoolOp(ASTBoolOp::Or, and_test)
+        }
     }
 
     fn parse_exprlist(&mut self) -> Vec<ASTExpr> {
@@ -808,6 +823,52 @@ impl Parser {
         ASTStmt::Global(name)
     }
 
+    fn parse_print_stmt(&mut self) -> ASTStmt {
+        self.eat(&Token::PRINT);
+        let mut values = Vec::new();
+        let mut nl = true;
+        values.push(match self.tokenizer.get_current_token() {
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_test(),
+            _ => errors::unexpected_token(&self),
+        });
+        while *self.tokenizer.get_current_token() == Token::COMMA {
+            values.push(match self.tokenizer.get_current_token() {
+                Token::NOT
+                | Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_test(),
+                _ => {
+                    nl = false;
+                    break;
+                }
+            });
+        }
+        ASTStmt::Print(values, nl)
+    }
+
     fn parse_and_test(&mut self) -> ASTExpr {
         let mut not_test: Vec<ASTExpr> = Vec::new();
         not_test.push(match self.tokenizer.get_current_token() {
@@ -847,7 +908,11 @@ impl Parser {
                 _ => errors::unexpected_token(&self),
             });
         }
-        ASTExpr::BoolOp(ASTBoolOp::And, not_test)
+        if not_test.len() == 1 {
+            not_test.swap_remove(0)
+        } else {
+            ASTExpr::BoolOp(ASTBoolOp::And, not_test)
+        }
     }
 
     fn parse_expr(&mut self) -> ASTExpr {
@@ -1431,7 +1496,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_atom_expr(),
-            _ => errors::unexpected_token(&self)
+            _ => errors::unexpected_token(&self),
         }
     }
 
@@ -1447,7 +1512,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_atom(),
-            _ => errors::unexpected_token(&self)
+            _ => errors::unexpected_token(&self),
         };
         // trailerはCallかSubscriptで、atomや直前のtrailerの結果を包んでいく形になる
         loop {
@@ -1462,26 +1527,369 @@ impl Parser {
                 Token::LBRACKET => {
                     // list/set/dict subscription
                     self.eat(&Token::LBRACKET);
-                    let slice = self.parse_subscriptlist();
+                    let slice = self.parse_subscript();
                     self.eat(&Token::RBRACKET);
                     atom = ASTExpr::Subscript(Box::new(atom), slice);
                 }
-                _ => break
+                _ => break,
             }
         }
         atom
     }
 
     fn parse_atom(&mut self) -> ASTExpr {
-        unimplemented!();
+        match self.tokenizer.get_current_token() {
+            Token::LPAREN => {
+                self.eat(&Token::LPAREN);
+                let res = match self.tokenizer.get_current_token() {
+                    Token::NOT
+                    | Token::PLUS
+                    | Token::MINUS
+                    | Token::TILDE
+                    | Token::MUL
+                    | Token::LPAREN
+                    | Token::LBRACE
+                    | Token::LBRACKET
+                    | Token::ID(_)
+                    | Token::INT(_)
+                    | Token::FLOAT(_)
+                    | Token::STRING(_)
+                    | Token::NONE
+                    | Token::TRUE
+                    | Token::FALSE => self.parse_testlist_star_expr(),
+                    _ => ASTExpr::Tuple(Vec::new()),
+                };
+                self.eat(&Token::RPAREN);
+                res
+            }
+            Token::LBRACKET => {
+                self.eat(&Token::LBRACKET);
+                let res = match self.tokenizer.get_current_token() {
+                    Token::NOT
+                    | Token::PLUS
+                    | Token::MINUS
+                    | Token::TILDE
+                    | Token::MUL
+                    | Token::LPAREN
+                    | Token::LBRACE
+                    | Token::LBRACKET
+                    | Token::ID(_)
+                    | Token::INT(_)
+                    | Token::FLOAT(_)
+                    | Token::STRING(_)
+                    | Token::NONE
+                    | Token::TRUE
+                    | Token::FALSE => self.parse_testlist_star_expr(),
+                    _ => ASTExpr::List(Vec::new()),
+                };
+                self.eat(&Token::RBRACKET);
+                res
+            }
+            Token::LBRACE => {
+                self.eat(&Token::LBRACE);
+                let res = self.parse_dictorsetmaker();
+                self.eat(&Token::RBRACE);
+                res
+            }
+            Token::ID(_) => {
+                let name = self.eat_id();
+                ASTExpr::Name(name)
+            }
+            Token::INT(_) => {
+                let num = self.eat_int();
+                ASTExpr::Constant(ASTConstant::Int(num))
+            }
+            Token::FLOAT(_) => {
+                let num = self.eat_float();
+                ASTExpr::Constant(ASTConstant::Float(num))
+            }
+            Token::STRING(_) => {
+                let val = self.eat_str();
+                ASTExpr::Constant(ASTConstant::String(val))
+            }
+            Token::NONE => {
+                self.eat(&Token::NONE);
+                ASTExpr::Constant(ASTConstant::None)
+            }
+            Token::TRUE => {
+                self.eat(&Token::TRUE);
+                ASTExpr::Constant(ASTConstant::True)
+            }
+            Token::FALSE => {
+                self.eat(&Token::FALSE);
+                ASTExpr::Constant(ASTConstant::False)
+            }
+            _ => errors::unexpected_token(&self),
+        }
+    }
+
+    fn parse_subscript(&mut self) -> ASTSlice {
+        match self.tokenizer.get_current_token() {
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => {
+                let lower = Box::new(self.parse_test());
+                if *self.tokenizer.get_current_token() == Token::COLON {
+                    self.eat(&Token::COLON);
+                    let upper = match *self.tokenizer.get_current_token() {
+                        Token::NOT
+                        | Token::PLUS
+                        | Token::MINUS
+                        | Token::TILDE
+                        | Token::LPAREN
+                        | Token::LBRACE
+                        | Token::LBRACKET
+                        | Token::ID(_)
+                        | Token::INT(_)
+                        | Token::FLOAT(_)
+                        | Token::STRING(_)
+                        | Token::NONE
+                        | Token::TRUE
+                        | Token::FALSE => Some(Box::new(self.parse_test())),
+                        _ => None,
+                    };
+                    let step = match *self.tokenizer.get_current_token() {
+                        Token::COLON => {
+                            self.eat(&Token::COLON);
+                            match self.tokenizer.get_current_token() {
+                                Token::NOT
+                                | Token::PLUS
+                                | Token::MINUS
+                                | Token::TILDE
+                                | Token::LPAREN
+                                | Token::LBRACE
+                                | Token::LBRACKET
+                                | Token::ID(_)
+                                | Token::INT(_)
+                                | Token::FLOAT(_)
+                                | Token::STRING(_)
+                                | Token::NONE
+                                | Token::TRUE
+                                | Token::FALSE => Some(Box::new(self.parse_test())),
+                                _ => None,
+                            }
+                        }
+                        _ => None,
+                    };
+                    ASTSlice::Slice(Some(lower), upper, step)
+                } else {
+                    // 単体
+                    ASTSlice::Index(lower)
+                }
+            }
+            Token::COLON => {
+                self.eat(&Token::COLON);
+                let upper = match *self.tokenizer.get_current_token() {
+                    Token::NOT
+                    | Token::PLUS
+                    | Token::MINUS
+                    | Token::TILDE
+                    | Token::LPAREN
+                    | Token::LBRACE
+                    | Token::LBRACKET
+                    | Token::ID(_)
+                    | Token::INT(_)
+                    | Token::FLOAT(_)
+                    | Token::STRING(_)
+                    | Token::NONE
+                    | Token::TRUE
+                    | Token::FALSE => Some(Box::new(self.parse_test())),
+                    _ => None,
+                };
+                let step = match *self.tokenizer.get_current_token() {
+                    Token::COLON => {
+                        self.eat(&Token::COLON);
+                        match self.tokenizer.get_current_token() {
+                            Token::NOT
+                            | Token::PLUS
+                            | Token::MINUS
+                            | Token::TILDE
+                            | Token::LPAREN
+                            | Token::LBRACE
+                            | Token::LBRACKET
+                            | Token::ID(_)
+                            | Token::INT(_)
+                            | Token::FLOAT(_)
+                            | Token::STRING(_)
+                            | Token::NONE
+                            | Token::TRUE
+                            | Token::FALSE => Some(Box::new(self.parse_test())),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                };
+                ASTSlice::Slice(None, upper, step)
+            }
+            _ => errors::unexpected_token(&self),
+        }
+    }
+
+    fn parse_dictorsetmaker(&mut self) -> ASTExpr {
+        let first_element = match self.tokenizer.get_current_token() {
+            Token::MUL => self.parse_star_expr(),
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_test(),
+            _ => errors::unexpected_token(&self),
+        };
+        match *self.tokenizer.get_current_token() {
+            Token::COLON => {
+                // dict
+                let mut keys = vec![first_element];
+                let mut values = Vec::new();
+                self.eat(&Token::COLON);
+                values.push(match self.tokenizer.get_current_token() {
+                    Token::NOT
+                    | Token::PLUS
+                    | Token::MINUS
+                    | Token::TILDE
+                    | Token::LPAREN
+                    | Token::LBRACE
+                    | Token::LBRACKET
+                    | Token::ID(_)
+                    | Token::INT(_)
+                    | Token::FLOAT(_)
+                    | Token::STRING(_)
+                    | Token::NONE
+                    | Token::TRUE
+                    | Token::FALSE => self.parse_test(),
+                    _ => errors::unexpected_token(&self),
+                });
+                while *self.tokenizer.get_current_token() == Token::COLON {
+                    self.eat(&Token::COLON);
+                    keys.push(match self.tokenizer.get_current_token() {
+                        Token::NOT
+                        | Token::PLUS
+                        | Token::MINUS
+                        | Token::TILDE
+                        | Token::LPAREN
+                        | Token::LBRACE
+                        | Token::LBRACKET
+                        | Token::ID(_)
+                        | Token::INT(_)
+                        | Token::FLOAT(_)
+                        | Token::STRING(_)
+                        | Token::NONE
+                        | Token::TRUE
+                        | Token::FALSE => self.parse_test(),
+                        _ => break,
+                    });
+                    values.push(match self.tokenizer.get_current_token() {
+                        Token::NOT
+                        | Token::PLUS
+                        | Token::MINUS
+                        | Token::TILDE
+                        | Token::LPAREN
+                        | Token::LBRACE
+                        | Token::LBRACKET
+                        | Token::ID(_)
+                        | Token::INT(_)
+                        | Token::FLOAT(_)
+                        | Token::STRING(_)
+                        | Token::NONE
+                        | Token::TRUE
+                        | Token::FALSE => self.parse_test(),
+                        _ => errors::unexpected_token(&self),
+                    });
+                }
+                ASTExpr::Dict(keys, values)
+            }
+            Token::COMMA => {
+                let mut body = vec![first_element];
+                // set
+                while *self.tokenizer.get_current_token() == Token::COMMA {
+                    self.eat(&Token::COMMA);
+                    body.push(match self.tokenizer.get_current_token() {
+                        Token::MUL => self.parse_star_expr(),
+                        Token::NOT
+                        | Token::PLUS
+                        | Token::MINUS
+                        | Token::TILDE
+                        | Token::LPAREN
+                        | Token::LBRACE
+                        | Token::LBRACKET
+                        | Token::ID(_)
+                        | Token::INT(_)
+                        | Token::FLOAT(_)
+                        | Token::STRING(_)
+                        | Token::NONE
+                        | Token::TRUE
+                        | Token::FALSE => self.parse_test(),
+                        _ => break,
+                    });
+                }
+                ASTExpr::Set(body)
+            }
+            _ => {
+                // set with one element
+                ASTExpr::Set(vec![first_element])
+            }
+        }
     }
 
     fn parse_arglist(&mut self) -> Vec<ASTExpr> {
-        unimplemented!();
-    }
-
-    fn parse_subscriptlist(&mut self) -> ASTSlice {
-        unimplemented!();
+        let mut arglist = Vec::new();
+        arglist.push(match self.tokenizer.get_current_token() {
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_test(),
+            _ => errors::unexpected_token(&self),
+        });
+        while *self.tokenizer.get_current_token() == Token::COLON {
+            self.eat(&Token::COLON);
+            arglist.push(match self.tokenizer.get_current_token() {
+                Token::NOT
+                | Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_test(),
+                _ => break,
+            });
+        }
+        arglist
     }
 
     fn eat(&mut self, expected: &Token) {
@@ -1495,6 +1903,33 @@ impl Parser {
     fn eat_id(&mut self) -> String {
         let name = match self.tokenizer.get_current_token() {
             Token::ID(name) => name.to_owned(),
+            _ => errors::unexpected_token(&self),
+        };
+        self.tokenizer.next_token();
+        name
+    }
+
+    fn eat_int(&mut self) -> i32 {
+        let num = *(match self.tokenizer.get_current_token() {
+            Token::INT(num) => num,
+            _ => errors::unexpected_token(&self),
+        });
+        self.tokenizer.next_token();
+        num
+    }
+
+    fn eat_float(&mut self) -> f32 {
+        let num = *(match self.tokenizer.get_current_token() {
+            Token::FLOAT(num) => num,
+            _ => errors::unexpected_token(&self),
+        });
+        self.tokenizer.next_token();
+        num
+    }
+
+    fn eat_str(&mut self) -> String {
+        let name = match self.tokenizer.get_current_token() {
+            Token::STRING(name) => name.to_owned(),
             _ => errors::unexpected_token(&self),
         };
         self.tokenizer.next_token();
