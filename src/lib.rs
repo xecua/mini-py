@@ -4,3 +4,6 @@ pub mod ast;
 pub mod parser;
 pub mod char_stream;
 pub mod errors;
+
+#[cfg(test)]
+pub mod test;
