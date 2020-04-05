@@ -70,12 +70,15 @@ atom_expr: atom trailer*;
   (* '(' [testlist_comp] ')' |
   '[' [testlist_comp] ']' | *)
 atom: (
-  '(' [testlist_star_expr] ')' |
-  '[' [testlist_star_expr] ']' | 
+  '(' [testlist_comp] ')' |
+  '[' [testlist_comp] ']' | 
   '{' [dictorsetmaker] '}' |
   NAME | NUMBER | STRING+ | 'None' | 'True' | 'False'
 );
+(* パーサの戻り値の型がtestlist_star_exprと異なるので分けておく *)
 (* testlist_comp: (test|star_expr) ( comp_for | (',' (test|star_expr))* [','] ); *)
+testlist_comp: (test|star_expr) (',' (test|star_expr))* [','];
+
 (* trailer: '(' [arglist] ')' | '[' subscriptlist ']';
 subscriptlist: subscript (',' subscript)* [',']; <- for extended slice? *)
 trailer: '(' [arglist] ')' | '[' subscript ']';

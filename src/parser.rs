@@ -238,7 +238,10 @@ impl Parser {
             | Token::PRINT => self.parse_small_stmt(),
             _ => errors::unexpected_token(&self),
         };
-        self.eat(&Token::NEWLINE);
+        // 最後の改行の省略を許容
+        if *self.tokenizer.get_current_token() != Token::EOF {
+            self.eat(&Token::NEWLINE);
+        }
         small_stmt
     }
 
@@ -1556,7 +1559,7 @@ impl Parser {
                     | Token::STRING(_)
                     | Token::NONE
                     | Token::TRUE
-                    | Token::FALSE => self.parse_testlist_star_expr(),
+                    | Token::FALSE => ASTExpr::Tuple(self.parse_testlist_comp()),
                     _ => ASTExpr::Tuple(Vec::new()),
                 };
                 self.eat(&Token::RPAREN);
@@ -1579,7 +1582,7 @@ impl Parser {
                     | Token::STRING(_)
                     | Token::NONE
                     | Token::TRUE
-                    | Token::FALSE => self.parse_testlist_star_expr(),
+                    | Token::FALSE => ASTExpr::List(self.parse_testlist_comp()),
                     _ => ASTExpr::List(Vec::new()),
                 };
                 self.eat(&Token::RBRACKET);
@@ -1891,6 +1894,48 @@ impl Parser {
         }
         arglist
     }
+    fn parse_testlist_comp(&mut self) -> Vec<ASTExpr> {
+        let mut res = vec![match self.tokenizer.get_current_token() {
+            Token::MUL => self.parse_star_expr(),
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE => self.parse_test(),
+            _ => errors::unexpected_token(&self),
+        }];
+        while *self.tokenizer.get_current_token() == Token::COMMA {
+            self.eat(&Token::COMMA);
+            res.push(match self.tokenizer.get_current_token() {
+                Token::MUL => self.parse_star_expr(),
+                Token::NOT
+                | Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_test(),
+                _ => break,
+            });
+        }
+        res
+    }
 
     fn eat(&mut self, expected: &Token) {
         if self.tokenizer.get_current_token() != expected {
@@ -1963,5 +2008,4 @@ impl Parser {
     pub fn get_current_line_content(&self) -> &String {
         self.tokenizer.get_current_line_content()
     }
-
 }
