@@ -1517,7 +1517,14 @@ impl Parser {
                     | Token::STRING(_)
                     | Token::NONE
                     | Token::TRUE
-                    | Token::FALSE => ASTExpr::Tuple(self.parse_testlist_comp()),
+                    | Token::FALSE => {
+                        let (mut elts, trailing_comma) = self.parse_testlist_comp();
+                        if elts.len() == 1 && !trailing_comma {
+                            elts.swap_remove(0)
+                        } else {
+                            ASTExpr::Tuple(elts)
+                        }
+                    }
                     _ => ASTExpr::Tuple(Vec::new()),
                 };
                 self.eat(&Token::RPAREN);
@@ -1539,7 +1546,7 @@ impl Parser {
                     | Token::STRING(_)
                     | Token::NONE
                     | Token::TRUE
-                    | Token::FALSE => ASTExpr::List(self.parse_testlist_comp()),
+                    | Token::FALSE => ASTExpr::List(self.parse_testlist_comp().0),
                     _ => ASTExpr::List(Vec::new()),
                 };
                 self.eat(&Token::RBRACKET);
@@ -1849,7 +1856,10 @@ impl Parser {
         }
         arglist
     }
-    fn parse_testlist_comp(&mut self) -> Vec<ASTExpr> {
+
+    // return value's second is if it has trailing comma(for tuple)
+    fn parse_testlist_comp(&mut self) -> (Vec<ASTExpr>, bool) {
+        let mut trailing_comma = false;
         let mut res = vec![match self.tokenizer.get_current_token() {
             Token::NOT
             | Token::PLUS
@@ -1884,10 +1894,13 @@ impl Parser {
                 | Token::NONE
                 | Token::TRUE
                 | Token::FALSE => self.parse_test(),
-                _ => break,
+                _ => {
+                    trailing_comma = true;
+                    break;
+                }
             });
         }
-        res
+        (res, trailing_comma)
     }
 
     fn eat(&mut self, expected: &Token) {

@@ -77,6 +77,7 @@ atom: (
 );
 (* パーサの戻り値の型がtestlist_star_exprと異なるので分けておく *)
 (* testlist_comp: (test|star_expr) ( comp_for | (',' (test|star_expr))* [','] ); *)
+(* tupleでケツカンマがない、かつ要素数が1のときはただのブロックという点に注意 *)
 testlist_comp: (test|star_expr) (',' (test|star_expr))* [','];
 
 (* trailer: '(' [arglist] ')' | '[' subscriptlist ']';
