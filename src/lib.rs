@@ -1,7 +1,7 @@
 pub mod ast;
 pub mod char_stream;
 pub mod errors;
-pub mod evaluator;
+pub mod eval;
 pub mod parser;
 pub mod token;
 pub mod tokenizer;

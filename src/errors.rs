@@ -1,5 +1,6 @@
 use crate::parser::Parser;
 use crate::tokenizer::Tokenizer;
+use crate::eval::evaluator::Evaluator;
 
 // tokenizer
 pub fn wrong_indent(_tokenizer: &Tokenizer) -> ! {
@@ -33,4 +34,12 @@ pub fn unexpected_token(parser: &Parser) -> ! {
 pub fn name_error(name: &String) -> ! {
     eprintln!("Name Error: {} is not defined", name);
     std::process::exit(1);
+}
+
+pub fn type_error() -> ! {
+    panic!();
+}
+
+pub fn invalid_syntax_eval(_evaluator: &Evaluator) -> ! {
+    panic!();
 }

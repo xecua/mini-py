@@ -13,7 +13,7 @@ pub type ASTInt = i32;
 pub type ASTString = String;
 // ハードコードされた値?
 // 色々アレなので数値は32bitの範囲で...
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ASTConstant {
     Int(isize),
     Float(f64),
@@ -26,7 +26,7 @@ pub enum ASTConstant {
 // pub type ASTObject;
 
 // AST parts
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ASTStmt {
     FuncDef(
         String,       // name
@@ -72,7 +72,7 @@ pub enum ASTStmt {
     Continue,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ASTExpr {
     BoolOp(
         ASTBoolOp,    // op
@@ -148,10 +148,10 @@ pub enum ASTExpr {
         ASTSlice,     // slice
                       // ASTExprContext, // ctx <- ???
     ),
-    Starred(
-        Box<ASTExpr>, // value
-                      // ASTExprContext, // ctx <- ???
-    ),
+    // Starred(
+    //     Box<ASTExpr>, // value
+    //                   // ASTExprContext, // ctx <- ???
+    // ),
     Name(
         ASTIdentifier, // id
                        // ASTExprContext, // ctx <- ???
@@ -176,7 +176,7 @@ pub enum ASTExpr {
 //     AugStore, // 仮引数?
 // }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ASTSlice {
     Slice(
         Option<Box<ASTExpr>>, // lower
@@ -191,13 +191,13 @@ pub enum ASTSlice {
     ),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ASTBoolOp {
     And,
     Or,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ASTOperator {
     Add,
     Sub,
@@ -211,7 +211,7 @@ pub enum ASTOperator {
     BitAnd,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ASTUnaryOp {
     Invert, // ~
     Not,    // `not`
@@ -219,7 +219,7 @@ pub enum ASTUnaryOp {
     USub,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ASTCmpOp {
     Eq,
     NotEq,
