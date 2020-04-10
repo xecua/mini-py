@@ -38,7 +38,6 @@ impl Parser {
                 | Token::PLUS
                 | Token::MINUS
                 | Token::TILDE
-                | Token::MUL
                 | Token::LPAREN
                 | Token::LBRACE
                 | Token::LBRACKET
@@ -73,7 +72,6 @@ impl Parser {
             | Token::PLUS
             | Token::MINUS
             | Token::TILDE
-            | Token::MUL
             | Token::LPAREN
             | Token::LBRACE
             | Token::LBRACKET
@@ -133,7 +131,6 @@ impl Parser {
             | Token::PLUS
             | Token::MINUS
             | Token::TILDE
-            | Token::MUL
             | Token::LPAREN
             | Token::LBRACE
             | Token::LBRACKET
@@ -185,7 +182,6 @@ impl Parser {
                     | Token::PLUS
                     | Token::MINUS
                     | Token::TILDE
-                    | Token::MUL
                     | Token::LPAREN
                     | Token::LBRACE
                     | Token::LBRACKET
@@ -218,7 +214,6 @@ impl Parser {
             | Token::PLUS
             | Token::MINUS
             | Token::TILDE
-            | Token::MUL
             | Token::LPAREN
             | Token::LBRACE
             | Token::LBRACKET
@@ -319,7 +314,6 @@ impl Parser {
                         | Token::PLUS
                         | Token::MINUS
                         | Token::TILDE
-                        | Token::MUL
                         | Token::LPAREN
                         | Token::LBRACE
                         | Token::LBRACKET
@@ -354,7 +348,6 @@ impl Parser {
             | Token::PLUS
             | Token::MINUS
             | Token::TILDE
-            | Token::MUL
             | Token::LPAREN
             | Token::LBRACE
             | Token::LBRACKET
@@ -401,7 +394,6 @@ impl Parser {
             | Token::PLUS
             | Token::MINUS
             | Token::TILDE
-            | Token::MUL
             | Token::LPAREN
             | Token::LBRACE
             | Token::LBRACKET
@@ -428,8 +420,7 @@ impl Parser {
     fn parse_for_stmt(&mut self) -> ASTStmt {
         self.eat(&Token::FOR);
         let target = match self.tokenizer.get_current_token() {
-            Token::MUL
-            | Token::PLUS
+            Token::PLUS
             | Token::MINUS
             | Token::TILDE
             | Token::LPAREN
@@ -475,7 +466,6 @@ impl Parser {
             | Token::PLUS
             | Token::MINUS
             | Token::TILDE
-            | Token::MUL
             | Token::LPAREN
             | Token::LBRACE
             | Token::LBRACKET
@@ -512,7 +502,6 @@ impl Parser {
             | Token::PLUS
             | Token::MINUS
             | Token::TILDE
-            | Token::MUL
             | Token::LPAREN
             | Token::LBRACE
             | Token::LBRACKET
@@ -542,7 +531,6 @@ impl Parser {
             | Token::PLUS
             | Token::MINUS
             | Token::TILDE
-            | Token::MUL
             | Token::LPAREN
             | Token::LBRACE
             | Token::LBRACKET
@@ -611,7 +599,6 @@ impl Parser {
     fn parse_exprlist(&mut self) -> Vec<ASTExpr> {
         let mut res: Vec<ASTExpr> = Vec::new();
         res.push(match self.tokenizer.get_current_token() {
-            Token::MUL => self.parse_star_expr(),
             Token::PLUS
             | Token::MINUS
             | Token::TILDE
@@ -630,7 +617,6 @@ impl Parser {
         while *self.tokenizer.get_current_token() == Token::COMMA {
             self.eat(&Token::COMMA);
             res.push(match self.tokenizer.get_current_token() {
-                Token::MUL => self.parse_star_expr(),
                 Token::PLUS
                 | Token::MINUS
                 | Token::TILDE
@@ -713,7 +699,6 @@ impl Parser {
             | Token::PLUS
             | Token::MINUS
             | Token::TILDE
-            | Token::MUL
             | Token::LPAREN
             | Token::LBRACE
             | Token::LBRACKET
@@ -733,7 +718,6 @@ impl Parser {
                 | Token::PLUS
                 | Token::MINUS
                 | Token::TILDE
-                | Token::MUL
                 | Token::LPAREN
                 | Token::LBRACE
                 | Token::LBRACKET
@@ -754,7 +738,6 @@ impl Parser {
                     | Token::PLUS
                     | Token::MINUS
                     | Token::TILDE
-                    | Token::MUL
                     | Token::LPAREN
                     | Token::LBRACE
                     | Token::LBRACKET
@@ -777,8 +760,7 @@ impl Parser {
     fn parse_del_stmt(&mut self) -> ASTStmt {
         self.eat(&Token::DEL);
         ASTStmt::Delete(match self.tokenizer.get_current_token() {
-            Token::MUL
-            | Token::PLUS
+            Token::PLUS
             | Token::MINUS
             | Token::TILDE
             | Token::LPAREN
@@ -959,26 +941,6 @@ impl Parser {
         }
     }
 
-    fn parse_star_expr(&mut self) -> ASTExpr {
-        self.eat(&Token::MUL);
-        ASTExpr::Starred(Box::new(match self.tokenizer.get_current_token() {
-            Token::PLUS
-            | Token::MINUS
-            | Token::TILDE
-            | Token::LPAREN
-            | Token::LBRACE
-            | Token::LBRACKET
-            | Token::ID(_)
-            | Token::INT(_)
-            | Token::FLOAT(_)
-            | Token::STRING(_)
-            | Token::NONE
-            | Token::TRUE
-            | Token::FALSE => self.parse_expr(),
-            _ => errors::unexpected_token(&self),
-        }))
-    }
-
     fn parse_typedargslist(&mut self) -> ASTArguments {
         let mut name: Vec<String> = Vec::new();
         name.push(self.eat_id());
@@ -994,7 +956,6 @@ impl Parser {
 
     fn parse_testlist_star_expr(&mut self) -> ASTExpr {
         let mut body = vec![match self.tokenizer.get_current_token() {
-            Token::MUL => self.parse_star_expr(),
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -1014,7 +975,6 @@ impl Parser {
         while *self.tokenizer.get_current_token() == Token::COMMA {
             self.eat(&Token::COMMA);
             body.push(match self.tokenizer.get_current_token() {
-                Token::MUL => self.parse_star_expr(),
                 Token::NOT
                 | Token::PLUS
                 | Token::MINUS
@@ -1057,7 +1017,6 @@ impl Parser {
             | Token::PLUS
             | Token::MINUS
             | Token::TILDE
-            | Token::MUL
             | Token::LPAREN
             | Token::LBRACE
             | Token::LBRACKET
@@ -1549,7 +1508,6 @@ impl Parser {
                     | Token::PLUS
                     | Token::MINUS
                     | Token::TILDE
-                    | Token::MUL
                     | Token::LPAREN
                     | Token::LBRACE
                     | Token::LBRACKET
@@ -1572,7 +1530,6 @@ impl Parser {
                     | Token::PLUS
                     | Token::MINUS
                     | Token::TILDE
-                    | Token::MUL
                     | Token::LPAREN
                     | Token::LBRACE
                     | Token::LBRACKET
@@ -1741,7 +1698,6 @@ impl Parser {
 
     fn parse_dictorsetmaker(&mut self) -> ASTExpr {
         let first_element = match self.tokenizer.get_current_token() {
-            Token::MUL => self.parse_star_expr(),
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -1826,7 +1782,6 @@ impl Parser {
                 while *self.tokenizer.get_current_token() == Token::COMMA {
                     self.eat(&Token::COMMA);
                     body.push(match self.tokenizer.get_current_token() {
-                        Token::MUL => self.parse_star_expr(),
                         Token::NOT
                         | Token::PLUS
                         | Token::MINUS
@@ -1896,7 +1851,6 @@ impl Parser {
     }
     fn parse_testlist_comp(&mut self) -> Vec<ASTExpr> {
         let mut res = vec![match self.tokenizer.get_current_token() {
-            Token::MUL => self.parse_star_expr(),
             Token::NOT
             | Token::PLUS
             | Token::MINUS
@@ -1916,7 +1870,6 @@ impl Parser {
         while *self.tokenizer.get_current_token() == Token::COMMA {
             self.eat(&Token::COMMA);
             res.push(match self.tokenizer.get_current_token() {
-                Token::MUL => self.parse_star_expr(),
                 Token::NOT
                 | Token::PLUS
                 | Token::MINUS

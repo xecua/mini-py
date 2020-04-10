@@ -34,7 +34,7 @@ simple_stmt: small_stmt NEWLINE;
 small_stmt: expr_stmt | del_stmt | pass_stmt | flow_stmt | global_stmt | print_stmt;
 expr_stmt: testlist_star_expr [('=' testlist_star_expr)+];
 (* annassign: ':' test ['=' testlist_star_expr]; <- type "ann"otation... *)
-testlist_star_expr: (test|star_expr) (',' (test|star_expr))* [','];
+testlist_star_expr: test (',' test)* [','];
 del_stmt: 'del' exprlist;
 pass_stmt: 'pass';
 flow_stmt: break_stmt | continue_stmt | return_stmt;
@@ -57,7 +57,7 @@ and_test: not_test ('and' not_test)*;
 not_test: 'not' not_test | comparison;
 comparison: expr (comp_op expr)*;
 comp_op: '<'|'>'|'=='|'>='|'<='|'!='|'in'|'not' 'in'|'is'|'is' 'not';
-star_expr: '*' expr;
+(* star_expr: '*' expr; *)
 expr: xor_expr ('|' xor_expr)*;
 xor_expr: and_expr ('^' and_expr)*;
 and_expr: shift_expr ('&' shift_expr)*;
