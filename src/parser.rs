@@ -830,6 +830,7 @@ impl Parser {
             _ => errors::unexpected_token(&self),
         });
         while *self.tokenizer.get_current_token() == Token::COMMA {
+            self.eat(&Token::COMMA);
             values.push(match self.tokenizer.get_current_token() {
                 Token::NOT
                 | Token::PLUS
