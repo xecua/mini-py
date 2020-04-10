@@ -48,6 +48,13 @@ pub enum py_val {
 
 pub type py_val_t = *mut py_val;
 
+pub enum StmtResult {
+    Return(py_val_t),
+    Continue,
+    Break,
+    Next,
+}
+
 // constructors
 pub fn make_none() -> py_val_t {
     unsafe { transmute(0b110isize) }
@@ -61,6 +68,13 @@ pub fn make_false() -> py_val_t {
     unsafe { transmute(0b11110isize) }
 }
 
+pub fn make_bool(val: bool) -> py_val_t {
+    if val {
+        make_true()
+    } else {
+        make_false()
+    }
+}
 pub fn make_int(val: isize) -> py_val_t {
     unsafe { transmute((val << 2) + 0b01) }
 }
@@ -91,6 +105,14 @@ pub fn make_set(val: Vec<py_val_t>) -> py_val_t {
 
 pub fn make_dict(val: HashMap<py_val_t, py_val_t>) -> py_val_t {
     Box::into_raw(Box::new(py_val::dict(val)))
+}
+
+pub fn make_py_func(name: String, arguments: &Vec<String>, body: &Vec<ASTStmt>) -> py_val_t {
+    Box::into_raw(Box::new(py_val::func(py_func {
+        name: name,
+        args: arguments.clone(),
+        stmt: body.clone(),
+    })))
 }
 
 // type checkers

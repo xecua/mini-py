@@ -31,7 +31,7 @@ pub fn unexpected_token(parser: &Parser) -> ! {
 }
 
 // evaluator
-pub fn name_error(name: &String) -> ! {
+pub fn name_error(name: &str) -> ! {
     eprintln!("Name Error: {} is not defined", name);
     std::process::exit(1);
 }

@@ -1,5 +1,4 @@
 use crate::ast::*;
-use crate::eval::types::*;
 
 pub fn operator_to_function_name(op: &ASTOperator) -> &'static str {
     use ASTOperator::*;
