@@ -3,7 +3,8 @@ use std::iter::Iterator;
 
 use crate::ast::*;
 use crate::errors;
-use crate::eval::{types::*, utils::*};
+use crate::eval::{native_func::*, types::*, utils::*};
+use crate::parser::Parser;
 
 // None appears only in local environment and indicates it is global variable
 type LocalEnv = Option<HashMap<String, Option<py_val_t>>>;
@@ -15,13 +16,57 @@ pub struct Evaluator {
     back_trace: StackTrace,
 }
 
+macro_rules! insert_all {
+    ($env: expr, [$(($name: ident, $arity: expr)),*]) => {
+        $(
+            $env.insert(stringify!($name).to_string(),
+            make_native_func(stringify!($name).to_string(), $arity, $name as fn(Vec<py_val_t>) -> py_val_t));
+        )*
+    }
+}
+
 impl Evaluator {
     pub fn new() -> Evaluator {
+        // native関数の登録
+        let mut global_env: GlobalEnv = GlobalEnv::new();
+        #[rustfmt::skip]
+        insert_all!(global_env, [
+            (ntv_itof, 1), (ntv_ftoi, 1), (ntv_repr_int, 1), (ntv_repr_float, 1),
+            (ntv_add_int, 2), (ntv_sub_int, 2), (ntv_mul_int, 2), (ntv_div_int, 2), (ntv_mod_int, 2),
+            (ntv_cmp_int, 2), (ntv_eq_int, 2), (ntv_ne_int, 2), (ntv_gt_int, 2), (ntv_ge_int, 2), (ntv_lt_int, 2), (ntv_le_int, 2),
+            (ntv_invert_int, 1), (ntv_and_int, 2), (ntv_or_int, 2), (ntv_xor_int, 2), (ntv_lshift_int, 2), (ntv_rshift_int, 2),
+            (ntv_add_float, 2), (ntv_sub_float, 2), (ntv_mul_float, 2), (ntv_div_float, 2), (ntv_mod_float, 2), (ntv_cmp_float, 2),
+            (ntv_len_string, 1), (ntv_add_string, 2), (ntv_getitem_string, 2),
+            (ntv_add_tuple, 2), (ntv_len_tuple, 2), (ntv_getitem_tuple, 2),
+            (ntv_add_list, 2),
+            (ntv_print_string, 1), (ntv_range, 1), (ntv_panic, 0), (ntv_not, 1),
+            (ntv_is_int, 1), (ntv_is_float, 1), (ntv_is_tuple, 1), (ntv_is_list, 1), (ntv_is_dict, 1), (ntv_is_set, 1)
+        ]);
         Evaluator {
-            global_env: GlobalEnv::new(),
+            global_env: global_env,
             back_trace: StackTrace::new(),
         }
-        // native関数の登録
+    }
+
+    pub fn eval_ast(&mut self, ast: &AST) {
+        for stmt in ast {
+            match self.eval_stmt(stmt, &mut None) {
+                StmtResult::Next => (),
+                StmtResult::Continue | StmtResult::Break => panic!("outside loop"),
+                StmtResult::Return(_) => panic!("outside function."),
+            };
+        }
+    }
+
+    pub fn eval_file_input(&mut self, file_name: &str) -> std::io::Result<()> {
+        self.eval_ast(&Parser::new(&format!("{}/src/std/init.py", env!("PWD")))?.parse());
+        self.eval_ast(&Parser::new(file_name)?.parse());
+        // cleanup global environment
+        for (_, v) in self.global_env.iter() {
+            drop(*v);
+        }
+        self.global_env.clear();
+        Ok(())
     }
 
     fn eval_expr(&mut self, expr: &ASTExpr, local_env: &mut LocalEnv) -> py_val_t {
@@ -94,13 +139,7 @@ impl Evaluator {
             Constant(ASTConstant::None) => make_none(),
             Constant(ASTConstant::True) => make_true(),
             Constant(ASTConstant::False) => make_false(),
-            Constant(ASTConstant::String(s)) => {
-                if s.len() == 1 {
-                    make_char(s.to_owned().remove(0))
-                } else {
-                    make_string(s.to_owned())
-                }
-            }
+            Constant(ASTConstant::String(s)) => make_string(s.clone()),
             Subscript(value, ASTSlice::Index(index)) => {
                 let f = *(self.global_env.get("__getitem__").unwrap());
                 self.call_func(f, &vec![&*value, &*index], local_env)
@@ -228,7 +267,7 @@ impl Evaluator {
             Print(values, nl) => {
                 let f = *(self
                     .global_env
-                    .get(if *nl { "_print_nl" } else { "_print" })
+                    .get(if *nl { "__print_nl__" } else { "__print__" })
                     .unwrap());
                 let mut refs = Vec::new();
                 for value in values.iter() {
@@ -245,22 +284,6 @@ impl Evaluator {
             Break => StmtResult::Break,
             Continue => StmtResult::Continue,
         }
-    }
-
-    pub fn eval_file_input(&mut self, ast: &AST) {
-        for stmt in ast {
-            match self.eval_stmt(stmt, &mut None) {
-                StmtResult::Next => (),
-                StmtResult::Continue | StmtResult::Break => panic!("outside loop"),
-                StmtResult::Return(_) => panic!("outside function."),
-            };
-        }
-
-        // cleanup global environment
-        for (_, v) in self.global_env.iter() {
-            drop(*v);
-        }
-        self.global_env.clear();
     }
 
     fn eval_stmt_vec(&mut self, body: &Vec<ASTStmt>, local_env: &mut LocalEnv) -> StmtResult {

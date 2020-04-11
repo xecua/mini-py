@@ -1357,7 +1357,7 @@ impl Parser {
                 ASTExpr::BinOp(
                     Box::new(left),
                     match t {
-                        Token::MUL => ASTOperator::Mult,
+                        Token::MUL => ASTOperator::Mul,
                         Token::DIV => ASTOperator::Div,
                         Token::MOD => ASTOperator::Mod,
                         _ => errors::unexpected_token(&self),

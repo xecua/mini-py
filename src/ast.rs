@@ -201,7 +201,7 @@ pub enum ASTBoolOp {
 pub enum ASTOperator {
     Add,
     Sub,
-    Mult,
+    Mul,
     Div,
     Mod,
     LShift,
