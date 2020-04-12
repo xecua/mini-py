@@ -74,8 +74,9 @@ impl py_val {
         match self {
             py_val::int(0)
             | py_val::float(OrderedFloat(0.0))
-            | py_val::True
+            | py_val::False
             | py_val::None => false,
+            py_val::string(ref s) if s.len() == 0 => false,
             _ => true,
         }
     }

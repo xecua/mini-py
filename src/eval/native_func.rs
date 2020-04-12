@@ -341,6 +341,15 @@ pub fn ntv_add_list(values: Vec<py_val_t>) -> py_val_t {
 // print
 pub fn ntv_print_string(values: Vec<py_val_t>) -> py_val_t {
     if let py_val::string(ref s) = *values[0] {
+        print!("{}", s);
+    } else {
+        panic!();
+    }
+    py_val::new(py_val::None)
+}
+
+pub fn ntv_print_string_nl(values: Vec<py_val_t>) -> py_val_t {
+    if let py_val::string(ref s) = *values[0] {
         println!("{}", s);
     } else {
         panic!();
@@ -371,6 +380,14 @@ pub fn ntv_is_int(values: Vec<py_val_t>) -> py_val_t {
 
 pub fn ntv_is_float(values: Vec<py_val_t>) -> py_val_t {
     py_val::new(if matches!(*values[0], py_val::float(_)) {
+        py_val::True
+    } else {
+        py_val::False
+    })
+}
+
+pub fn ntv_is_string(values: Vec<py_val_t>) -> py_val_t {
+    py_val::new(if matches!(*values[0], py_val::string(_)) {
         py_val::True
     } else {
         py_val::False

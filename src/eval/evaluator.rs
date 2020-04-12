@@ -36,19 +36,58 @@ impl Evaluator {
     pub fn new() -> Evaluator {
         // native関数の登録
         let mut global_env: GlobalEnv = GlobalEnv::new();
-        #[rustfmt::skip]
-        insert_native_functions!(global_env, [
-            (ntv_itof, 1), (ntv_ftoi, 1), (ntv_repr_int, 1), (ntv_repr_float, 1),
-            (ntv_add_int, 2), (ntv_sub_int, 2), (ntv_mul_int, 2), (ntv_div_int, 2), (ntv_mod_int, 2),
-            (ntv_cmp_int, 2), (ntv_eq_int, 2), (ntv_ne_int, 2), (ntv_gt_int, 2), (ntv_ge_int, 2), (ntv_lt_int, 2), (ntv_le_int, 2),
-            (ntv_invert_int, 1), (ntv_and_int, 2), (ntv_or_int, 2), (ntv_xor_int, 2), (ntv_lshift_int, 2), (ntv_rshift_int, 2),
-            (ntv_add_float, 2), (ntv_sub_float, 2), (ntv_mul_float, 2), (ntv_div_float, 2), (ntv_mod_float, 2), (ntv_cmp_float, 2),
-            (ntv_len_string, 1), (ntv_add_string, 2), (ntv_getitem_string, 2),
-            (ntv_add_tuple, 2), (ntv_len_tuple, 2), (ntv_getitem_tuple, 2),
-            (ntv_add_list, 2),
-            (ntv_print_string, 1), (ntv_range, 1), (ntv_panic, 0), (ntv_not, 1),
-            (ntv_is_int, 1), (ntv_is_float, 1), (ntv_is_tuple, 1), (ntv_is_list, 1), (ntv_is_dict, 1), (ntv_is_set, 1)
-        ]);
+        insert_native_functions!(
+            global_env,
+            [
+                (ntv_itof, 1),
+                (ntv_ftoi, 1),
+                (ntv_repr_int, 1),
+                (ntv_repr_float, 1),
+                (ntv_add_int, 2),
+                (ntv_sub_int, 2),
+                (ntv_mul_int, 2),
+                (ntv_div_int, 2),
+                (ntv_mod_int, 2),
+                (ntv_cmp_int, 2),
+                (ntv_eq_int, 2),
+                (ntv_ne_int, 2),
+                (ntv_gt_int, 2),
+                (ntv_ge_int, 2),
+                (ntv_lt_int, 2),
+                (ntv_le_int, 2),
+                (ntv_invert_int, 1),
+                (ntv_and_int, 2),
+                (ntv_or_int, 2),
+                (ntv_xor_int, 2),
+                (ntv_lshift_int, 2),
+                (ntv_rshift_int, 2),
+                (ntv_add_float, 2),
+                (ntv_sub_float, 2),
+                (ntv_mul_float, 2),
+                (ntv_div_float, 2),
+                (ntv_mod_float, 2),
+                (ntv_cmp_float, 2),
+                (ntv_len_string, 1),
+                (ntv_add_string, 2),
+                (ntv_getitem_string, 2),
+                (ntv_add_tuple, 2),
+                (ntv_len_tuple, 2),
+                (ntv_getitem_tuple, 2),
+                (ntv_add_list, 2),
+                (ntv_print_string, 1),
+                (ntv_print_string_nl, 1),
+                (ntv_range, 1),
+                (ntv_panic, 0),
+                (ntv_not, 1),
+                (ntv_is_int, 1),
+                (ntv_is_float, 1),
+                (ntv_is_string, 1),
+                (ntv_is_tuple, 1),
+                (ntv_is_list, 1),
+                (ntv_is_dict, 1),
+                (ntv_is_set, 1)
+            ]
+        );
         Evaluator {
             global_env: global_env,
             back_trace: StackTrace::new(),
