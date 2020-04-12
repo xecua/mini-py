@@ -75,6 +75,7 @@ dependencies = [
  "clap",
  "lazy_static",
  "ordered-float",
+ "stdio-override",
 ]
 
 [[package]]
@@ -93,6 +94,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18869315e81473c951eb56ad5558bbc56978562d3ecfb87abb7a1e944cea4518"
 dependencies = [
  "num-traits",
+]
+
+[[package]]
+name = "stdio-override"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9c22512d2e95aa9a717da4c955c0085078a1f28b988e0736fc7066fdcc030c8"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

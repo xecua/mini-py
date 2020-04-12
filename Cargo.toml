@@ -10,3 +10,6 @@ edition = "2018"
 clap = "2.33.0"
 lazy_static = "1.4.0"
 ordered-float = "1.0"
+
+[dev-dependencies]
+stdio-override = "0.1.3"
