@@ -62,10 +62,6 @@ pub enum ASTStmt {
     Global(
         Vec<ASTIdentifier>, // names
     ),
-    Print(
-        Vec<ASTExpr>, // values
-        bool,         // nl(ends with comma then not end with \n)
-    ),
     Expr(
         ASTExpr, // value
     ),

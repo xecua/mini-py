@@ -75,7 +75,6 @@ impl Evaluator {
                 (ntv_getitem_tuple, 2),
                 (ntv_add_list, 2),
                 (ntv_print_string, 1),
-                (ntv_print_string_nl, 1),
                 (ntv_range, 1),
                 (ntv_panic, 0),
                 (ntv_not, 1),
@@ -312,16 +311,6 @@ impl Evaluator {
                     }
                 }
                 // 大域環境では特に何もしない
-                StmtResult::Next
-            }
-            Print(values, nl) => {
-                let f = self
-                    .global_env
-                    .get(if *nl { "__print_nl__" } else { "__print__" })
-                    .unwrap()
-                    .clone();
-                let refs = values.iter().collect();
-                self.call_func(f, &refs, local_env);
                 StmtResult::Next
             }
             Expr(expr) => {

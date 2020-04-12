@@ -55,7 +55,6 @@ impl Parser {
                 | Token::CONTINUE
                 | Token::RETURN
                 | Token::GLOBAL
-                | Token::PRINT
                 | Token::IF
                 | Token::WHILE
                 | Token::FOR
@@ -88,8 +87,7 @@ impl Parser {
             | Token::BREAK
             | Token::CONTINUE
             | Token::RETURN
-            | Token::GLOBAL
-            | Token::PRINT => self.parse_simple_stmt(),
+            | Token::GLOBAL => self.parse_simple_stmt(),
             _ => errors::unexpected_token(&self),
         }
     }
@@ -148,7 +146,6 @@ impl Parser {
             | Token::CONTINUE
             | Token::RETURN
             | Token::GLOBAL
-            | Token::PRINT
             | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
@@ -199,7 +196,6 @@ impl Parser {
                     | Token::CONTINUE
                     | Token::RETURN
                     | Token::GLOBAL
-                    | Token::PRINT
                     | Token::NEWLINE => self.parse_suite(),
                     _ => errors::unexpected_token(&self),
                 }
@@ -230,8 +226,7 @@ impl Parser {
             | Token::BREAK
             | Token::CONTINUE
             | Token::RETURN
-            | Token::GLOBAL
-            | Token::PRINT => self.parse_small_stmt(),
+            | Token::GLOBAL => self.parse_small_stmt(),
             _ => errors::unexpected_token(&self),
         };
         // 最後の改行の省略を許容
@@ -331,7 +326,6 @@ impl Parser {
                         | Token::CONTINUE
                         | Token::RETURN
                         | Token::GLOBAL
-                        | Token::PRINT
                         | Token::IF
                         | Token::WHILE
                         | Token::FOR
@@ -364,8 +358,7 @@ impl Parser {
             | Token::BREAK
             | Token::CONTINUE
             | Token::RETURN
-            | Token::GLOBAL
-            | Token::PRINT => vec![self.parse_small_stmt()],
+            | Token::GLOBAL => vec![self.parse_small_stmt()],
             _ => errors::unexpected_token(&self),
         }
     }
@@ -411,7 +404,6 @@ impl Parser {
             | Token::CONTINUE
             | Token::RETURN
             | Token::GLOBAL
-            | Token::PRINT
             | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
@@ -483,7 +475,6 @@ impl Parser {
             | Token::CONTINUE
             | Token::RETURN
             | Token::GLOBAL
-            | Token::PRINT
             | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
@@ -519,7 +510,6 @@ impl Parser {
             | Token::CONTINUE
             | Token::RETURN
             | Token::GLOBAL
-            | Token::PRINT
             | Token::NEWLINE => self.parse_suite(),
             _ => errors::unexpected_token(&self),
         };
@@ -546,7 +536,6 @@ impl Parser {
             Token::PASS => self.parse_pass_stmt(),
             Token::BREAK | Token::CONTINUE | Token::RETURN => self.parse_flow_stmt(),
             Token::GLOBAL => self.parse_global_stmt(),
-            Token::PRINT => self.parse_print_stmt(),
             _ => errors::unexpected_token(&self),
         }
     }
@@ -807,53 +796,6 @@ impl Parser {
             });
         }
         ASTStmt::Global(name)
-    }
-
-    fn parse_print_stmt(&mut self) -> ASTStmt {
-        self.eat(&Token::PRINT);
-        let mut values = Vec::new();
-        let mut nl = true;
-        values.push(match self.tokenizer.get_current_token() {
-            Token::NOT
-            | Token::PLUS
-            | Token::MINUS
-            | Token::TILDE
-            | Token::LPAREN
-            | Token::LBRACE
-            | Token::LBRACKET
-            | Token::ID(_)
-            | Token::INT(_)
-            | Token::FLOAT(_)
-            | Token::STRING(_)
-            | Token::NONE
-            | Token::TRUE
-            | Token::FALSE => self.parse_test(),
-            _ => errors::unexpected_token(&self),
-        });
-        while *self.tokenizer.get_current_token() == Token::COMMA {
-            self.eat(&Token::COMMA);
-            values.push(match self.tokenizer.get_current_token() {
-                Token::NOT
-                | Token::PLUS
-                | Token::MINUS
-                | Token::TILDE
-                | Token::LPAREN
-                | Token::LBRACE
-                | Token::LBRACKET
-                | Token::ID(_)
-                | Token::INT(_)
-                | Token::FLOAT(_)
-                | Token::STRING(_)
-                | Token::NONE
-                | Token::TRUE
-                | Token::FALSE => self.parse_test(),
-                _ => {
-                    nl = false;
-                    break;
-                }
-            });
-        }
-        ASTStmt::Print(values, nl)
     }
 
     fn parse_and_test(&mut self) -> ASTExpr {

@@ -46,7 +46,6 @@ pub enum Token {
     PASS,           // pass
     RETURN,         // return
     DEL,            // del
-    PRINT,          // print
     GLOBAL,         // global
     IF,             // if
     ELIF,           // elif

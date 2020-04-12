@@ -341,15 +341,6 @@ pub fn ntv_add_list(values: Vec<py_val_t>) -> py_val_t {
 // print
 pub fn ntv_print_string(values: Vec<py_val_t>) -> py_val_t {
     if let py_val::string(ref s) = *values[0] {
-        print!("{}", s);
-    } else {
-        panic!();
-    }
-    py_val::new(py_val::None)
-}
-
-pub fn ntv_print_string_nl(values: Vec<py_val_t>) -> py_val_t {
-    if let py_val::string(ref s) = *values[0] {
         println!("{}", s);
     } else {
         panic!();

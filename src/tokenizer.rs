@@ -376,7 +376,6 @@ impl Tokenizer {
             "pass" => Token::PASS,
             "return" => Token::RETURN,
             "del" => Token::DEL,
-            "print" => Token::PRINT,
             "global" => Token::GLOBAL,
             "if" => Token::IF,
             "elif" => Token::ELIF,

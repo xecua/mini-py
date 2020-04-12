@@ -211,23 +211,15 @@ def __eq__(lhs, rhs):
     elif ntv_is_set(lhs) and ntv_is_set(rhs):
         # unimplemented
         ntv_panic()
+    else:
+        ntv_panic()
 
-def __print__(val):
+def print(val):
     if ntv_is_int(val):
         ntv_print_string(ntv_repr_int(val))
     elif ntv_is_float(val):
         ntv_print_string(ntv_repr_float(val))
     elif ntv_is_string(val):
         ntv_print_string(val)
-    else:
-        ntv_panic()
-
-def __print_nl__(val):
-    if ntv_is_int(val):
-        ntv_print_string_nl(ntv_repr_int(val))
-    elif ntv_is_float(val):
-        ntv_print_string_nl(ntv_repr_float(val))
-    elif ntv_is_string(val):
-        ntv_print_string_nl(val)
     else:
         ntv_panic()
