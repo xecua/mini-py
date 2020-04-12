@@ -8,14 +8,14 @@ fn test_test_1() {
     let ast = parser.parse();
     assert_eq!(
         ast,
-        vec![ASTStmt::Print(
+        vec![ASTStmt::Expr(ASTExpr::Call(
+            Box::new(ASTExpr::Name(String::from("print"))),
             vec![ASTExpr::BinOp(
                 Box::new(ASTExpr::Constant(ASTConstant::Int(1))),
                 ASTOperator::Add,
                 Box::new(ASTExpr::Constant(ASTConstant::Int(2)))
             )],
-            true
-        )]
+        ))]
     );
 }
 
@@ -34,7 +34,10 @@ fn test_test_2() {
                         vec![ASTExpr::Name(String::from("a"))],
                         ASTExpr::Constant(ASTConstant::Float(OrderedFloat(1.0)))
                     ),
-                    ASTStmt::Print(vec![ASTExpr::Name(String::from("a"))], true)
+                    ASTStmt::Expr(ASTExpr::Call(
+                        Box::new(ASTExpr::Name(String::from("print"))),
+                        vec![ASTExpr::Name(String::from("a"))]
+                    ))
                 ]
             ),
             ASTStmt::If(
@@ -77,12 +80,12 @@ fn test_fizzbuzz() {
                     vec![ASTCmpOp::Eq],
                     vec![ASTExpr::Constant(ASTConstant::Int(0))]
                 ),
-                vec![ASTStmt::Print(
+                vec![ASTStmt::Expr(ASTExpr::Call(
+                    Box::new(ASTExpr::Name(String::from("print"))),
                     vec![ASTExpr::Constant(ASTConstant::String(String::from(
                         "fizzbuzz"
                     )))],
-                    true
-                )],
+                ))],
                 vec![ASTStmt::If(
                     ASTExpr::Compare(
                         Box::new(ASTExpr::BinOp(
@@ -93,10 +96,10 @@ fn test_fizzbuzz() {
                         vec![ASTCmpOp::Eq],
                         vec![ASTExpr::Constant(ASTConstant::Int(0))]
                     ),
-                    vec![ASTStmt::Print(
+                    vec![ASTStmt::Expr(ASTExpr::Call(
+                        Box::new(ASTExpr::Name(String::from("print"))),
                         vec![ASTExpr::Constant(ASTConstant::String(String::from("fizz")))],
-                        true
-                    )],
+                    ))],
                     vec![ASTStmt::If(
                         ASTExpr::Compare(
                             Box::new(ASTExpr::BinOp(
@@ -107,11 +110,14 @@ fn test_fizzbuzz() {
                             vec![ASTCmpOp::Eq],
                             vec![ASTExpr::Constant(ASTConstant::Int(0))]
                         ),
-                        vec![ASTStmt::Print(
+                        vec![ASTStmt::Expr(ASTExpr::Call(
+                            Box::new(ASTExpr::Name(String::from("print"))),
                             vec![ASTExpr::Constant(ASTConstant::String(String::from("buzz")))],
-                            true
-                        )],
-                        vec![ASTStmt::Print(vec![ASTExpr::Name(String::from("i"))], true)],
+                        ))],
+                        vec![ASTStmt::Expr(ASTExpr::Call(
+                            Box::new(ASTExpr::Name(String::from("print"))),
+                            vec![ASTExpr::Name(String::from("i"))]
+                        ))]
                     )]
                 )],
             )]
@@ -125,13 +131,13 @@ fn test_test_3() {
     let ast = parser.parse();
     assert_eq!(
         ast,
-        vec![ASTStmt::Print(
+        vec![ASTStmt::Expr(ASTExpr::Call(
+            Box::new(ASTExpr::Name(String::from("print"))),
             vec![ASTExpr::List(vec![
                 ASTExpr::Constant(ASTConstant::Int(1)),
                 ASTExpr::Constant(ASTConstant::Int(2)),
                 ASTExpr::Constant(ASTConstant::Int(3))
             ])],
-            true
-        )]
+        ))]
     );
 }

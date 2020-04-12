@@ -31,7 +31,7 @@ simple_stmt: small_stmt NEWLINE;
 って感じ?~~
 そもそもセミコロン存在しなかったわ
 *)
-small_stmt: expr_stmt | del_stmt | pass_stmt | flow_stmt | global_stmt | print_stmt;
+small_stmt: expr_stmt | del_stmt | pass_stmt | flow_stmt | global_stmt;
 expr_stmt: testlist_star_expr [('=' testlist_star_expr)+];
 (* annassign: ':' test ['=' testlist_star_expr]; <- type "ann"otation... *)
 testlist_star_expr: test (',' test)* [','];
@@ -42,7 +42,6 @@ break_stmt: 'break';
 continue_stmt: 'continue';
 return_stmt: 'return' [testlist_star_expr];
 global_stmt: 'global' NAME (',' NAME)*;
-print_stmt: 'print' test (',' test)* [','];
 
 compound_stmt: if_stmt | while_stmt | for_stmt | funcdef;
 if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite];
