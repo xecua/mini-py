@@ -9,6 +9,7 @@ use crate::errors;
 use crate::token::Token;
 use crate::tokenizer::Tokenizer;
 use std::io;
+use ordered_float::OrderedFloat;
 
 pub struct Parser {
     tokenizer: Tokenizer,
@@ -1569,7 +1570,7 @@ impl Parser {
             }
             Token::FLOAT(_) => {
                 let num = self.eat_float();
-                ASTExpr::Constant(ASTConstant::Float(num))
+                ASTExpr::Constant(ASTConstant::Float(OrderedFloat(num)))
             }
             Token::STRING(_) => {
                 let val = self.eat_str();
@@ -1818,25 +1819,27 @@ impl Parser {
 
     fn parse_arglist(&mut self) -> Vec<ASTExpr> {
         let mut arglist = Vec::new();
-        arglist.push(match self.tokenizer.get_current_token() {
-            Token::NOT
-            | Token::PLUS
-            | Token::MINUS
-            | Token::TILDE
-            | Token::LPAREN
-            | Token::LBRACE
-            | Token::LBRACKET
-            | Token::ID(_)
-            | Token::INT(_)
-            | Token::FLOAT(_)
-            | Token::STRING(_)
-            | Token::NONE
-            | Token::TRUE
-            | Token::FALSE => self.parse_test(),
-            _ => errors::unexpected_token(&self),
-        });
-        while *self.tokenizer.get_current_token() == Token::COLON {
-            self.eat(&Token::COLON);
+        if *self.tokenizer.get_current_token() != Token::RPAREN {
+            arglist.push(match self.tokenizer.get_current_token() {
+                Token::NOT
+                | Token::PLUS
+                | Token::MINUS
+                | Token::TILDE
+                | Token::LPAREN
+                | Token::LBRACE
+                | Token::LBRACKET
+                | Token::ID(_)
+                | Token::INT(_)
+                | Token::FLOAT(_)
+                | Token::STRING(_)
+                | Token::NONE
+                | Token::TRUE
+                | Token::FALSE => self.parse_test(),
+                _ => errors::unexpected_token(&self),
+            });
+        }
+        while *self.tokenizer.get_current_token() == Token::COMMA {
+            self.eat(&Token::COMMA);
             arglist.push(match self.tokenizer.get_current_token() {
                 Token::NOT
                 | Token::PLUS
@@ -1921,7 +1924,7 @@ impl Parser {
         name
     }
 
-    fn eat_int(&mut self) -> isize {
+    fn eat_int(&mut self) -> i64 {
         let num = *(match self.tokenizer.get_current_token() {
             Token::INT(num) => num,
             _ => errors::unexpected_token(&self),

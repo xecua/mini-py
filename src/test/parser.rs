@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::parser::Parser;
+use ordered_float::OrderedFloat;
 
 #[test]
 fn test_test_1() {
@@ -31,7 +32,7 @@ fn test_test_2() {
                 vec![
                     ASTStmt::Assign(
                         vec![ASTExpr::Name(String::from("a"))],
-                        ASTExpr::Constant(ASTConstant::Float(1.0))
+                        ASTExpr::Constant(ASTConstant::Float(OrderedFloat(1.0)))
                     ),
                     ASTStmt::Print(vec![ASTExpr::Name(String::from("a"))], true)
                 ]

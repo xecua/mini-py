@@ -2,6 +2,8 @@
 //! 抽象構文木の構成要素
 //! https://docs.python.org/ja/3/library/ast.html#abstract-grammar からパクってきた(自作は無理)
 
+use ordered_float::OrderedFloat;
+
 // represents file(module).
 pub type AST = Vec<ASTStmt>;
 
@@ -13,10 +15,10 @@ pub type ASTInt = i32;
 pub type ASTString = String;
 // ハードコードされた値?
 // 色々アレなので数値は32bitの範囲で...
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Clone, Hash)]
 pub enum ASTConstant {
-    Int(isize),
-    Float(f64),
+    Int(i64),
+    Float(OrderedFloat<f64>),
     String(String),
     None,
     True,
@@ -26,7 +28,7 @@ pub enum ASTConstant {
 // pub type ASTObject;
 
 // AST parts
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Clone, Hash)]
 pub enum ASTStmt {
     FuncDef(
         String,       // name
@@ -72,7 +74,7 @@ pub enum ASTStmt {
     Continue,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Clone, Hash)]
 pub enum ASTExpr {
     BoolOp(
         ASTBoolOp,    // op
@@ -176,7 +178,7 @@ pub enum ASTExpr {
 //     AugStore, // 仮引数?
 // }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Clone, Hash)]
 pub enum ASTSlice {
     Slice(
         Option<Box<ASTExpr>>, // lower
@@ -191,13 +193,13 @@ pub enum ASTSlice {
     ),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Clone, Hash)]
 pub enum ASTBoolOp {
     And,
     Or,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Clone, Hash)]
 pub enum ASTOperator {
     Add,
     Sub,
@@ -211,7 +213,7 @@ pub enum ASTOperator {
     BitAnd,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Clone, Hash)]
 pub enum ASTUnaryOp {
     Invert, // ~
     Not,    // `not`
@@ -219,7 +221,7 @@ pub enum ASTUnaryOp {
     USub,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Clone, Hash)]
 pub enum ASTCmpOp {
     Eq,
     NotEq,

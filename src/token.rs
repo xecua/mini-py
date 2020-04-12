@@ -31,7 +31,7 @@ pub enum Token {
     COMMA,          // ,
     COLON,          // :
     NEWLINE,        // \n
-    INT(isize),     // integer literal
+    INT(i64),     // integer literal
     FLOAT(f64),     // floating point number literal
     STRING(String), // str literal
     ID(String),     // identifier
