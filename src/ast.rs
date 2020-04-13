@@ -30,6 +30,8 @@ pub enum ASTConstant {
 // AST parts
 #[derive(Debug, PartialEq, Eq, Ord, PartialOrd, Clone, Hash)]
 pub enum ASTStmt {
+    Init, // for initial state
+    End, // for final state
     FuncDef(
         String,       // name
         ASTArguments, // arguments

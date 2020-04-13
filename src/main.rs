@@ -29,7 +29,7 @@ fn main() -> io::Result<()> {
             Parser::new(matches.value_of("file").unwrap())?.parse()
         );
     } else {
-        Evaluator::new().eval_file_input(matches.value_of("file").unwrap())?;
+        Evaluator::new(matches.value_of("file").unwrap())?.eval();
     }
 
     Ok(())

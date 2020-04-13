@@ -15,6 +15,7 @@ type StackTrace = Vec<String>;
 pub struct Evaluator {
     global_env: GlobalEnv,
     back_trace: StackTrace,
+    parser: Parser,
 }
 
 macro_rules! insert_native_functions {
@@ -33,7 +34,7 @@ macro_rules! insert_native_functions {
 }
 
 impl Evaluator {
-    pub fn new() -> Evaluator {
+    pub fn new(file_name: &str) -> std::io::Result<Evaluator> {
         // native関数の登録
         let mut global_env: GlobalEnv = GlobalEnv::new();
         insert_native_functions!(
@@ -87,26 +88,39 @@ impl Evaluator {
                 (ntv_is_set, 1)
             ]
         );
-        Evaluator {
+        let mut evaluator = Evaluator {
             global_env: global_env,
             back_trace: StackTrace::new(),
+            parser: Parser::new(&format!("{}/src/std/init.py", env!("PWD")))?,
+        };
+        evaluator.eval();
+
+        evaluator.parser = Parser::new(file_name)?;
+        Ok(evaluator)
+    }
+
+    pub fn eval(&mut self) {
+        loop {
+            let stmt = self.parser.get_next_stmt();
+            match self.eval_stmt(&stmt, &mut None) {
+                StmtResult::Next => (),
+                StmtResult::Continue | StmtResult::Break => panic!("outside loop"),
+                StmtResult::Return(_) => panic!("outside function."),
+                StmtResult::End => break,
+            };
         }
     }
 
+    /// legacy
     pub fn eval_ast(&mut self, ast: &AST) {
         for stmt in ast {
             match self.eval_stmt(stmt, &mut None) {
                 StmtResult::Next => (),
                 StmtResult::Continue | StmtResult::Break => panic!("outside loop"),
                 StmtResult::Return(_) => panic!("outside function."),
+                StmtResult::End => break,
             };
         }
-    }
-
-    pub fn eval_file_input(&mut self, file_name: &str) -> std::io::Result<()> {
-        self.eval_ast(&Parser::new(&format!("{}/src/std/init.py", env!("PWD")))?.parse());
-        self.eval_ast(&Parser::new(file_name)?.parse());
-        Ok(())
     }
 
     fn eval_expr(&mut self, expr: &ASTExpr, local_env: &mut LocalEnv) -> py_val_t {
@@ -212,6 +226,8 @@ impl Evaluator {
     fn eval_stmt(&mut self, stmt: &ASTStmt, local_env: &mut LocalEnv) -> StmtResult {
         use ASTStmt::*;
         match stmt {
+            Init => panic!(), // should not happen
+            End => StmtResult::End,
             FuncDef(name, arguments, body) => {
                 // each values will be moved
                 let func = py_val::new(py_val::func(py_func {
@@ -257,7 +273,7 @@ impl Evaluator {
                             match self.eval_stmt_vec(&body_ref, local_env) {
                                 StmtResult::Next | StmtResult::Continue => (),
                                 StmtResult::Break => break,
-                                StmtResult::Return(val) => return StmtResult::Return(val),
+                                r @ StmtResult::Return(_) | r @ StmtResult::End => return r,
                             };
                         }
                         StmtResult::Next
@@ -272,7 +288,7 @@ impl Evaluator {
                             match self.eval_stmt_vec(&body_ref, local_env) {
                                 StmtResult::Next | StmtResult::Continue => (),
                                 StmtResult::Break => break,
-                                StmtResult::Return(val) => return StmtResult::Return(val),
+                                r @ StmtResult::Return(_) | r @ StmtResult::End => return r,
                             };
                         }
                         StmtResult::Next
@@ -286,7 +302,7 @@ impl Evaluator {
                     match self.eval_stmt_vec(&body_ref, local_env) {
                         StmtResult::Next | StmtResult::Continue => (),
                         StmtResult::Break => break,
-                        StmtResult::Return(val) => return StmtResult::Return(val),
+                        r @ StmtResult::Return(_) | r @ StmtResult::End => return r,
                     };
                 }
                 StmtResult::Next
@@ -383,7 +399,7 @@ impl Evaluator {
                         panic!("continue/break outside loop");
                     }
                     StmtResult::Return(v) => v,
-                    StmtResult::Next => py_val::new(py_val::None),
+                    StmtResult::Next | StmtResult::End => py_val::new(py_val::None),
                 }
             }
             _ => panic!("this should not occur..."),

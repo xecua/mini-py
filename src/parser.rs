@@ -8,22 +8,73 @@ use crate::ast::*;
 use crate::errors;
 use crate::token::Token;
 use crate::tokenizer::Tokenizer;
-use std::io;
 use ordered_float::OrderedFloat;
+use std::io;
 
 pub struct Parser {
     tokenizer: Tokenizer,
+    current_stmt: ASTStmt,
 }
 
 impl Parser {
     /// generate new Parser
     pub fn new(file_name: &str) -> io::Result<Parser> {
-        let tokenizer = Tokenizer::new(file_name)?;
+        let mut tokenizer = Tokenizer::new(file_name)?;
+        tokenizer.next_token();
         Ok(Parser {
             tokenizer: tokenizer,
+            current_stmt: ASTStmt::Init,
         })
     }
 
+    // parse and return the stmt
+    pub fn get_next_stmt(&mut self) -> ASTStmt {
+        self.next_stmt();
+        std::mem::replace(&mut self.current_stmt, ASTStmt::Init)
+    }
+
+    // or, use these 2 methods
+    pub fn get_current_stmt_ref(&self) -> &ASTStmt {
+        &self.current_stmt
+    }
+
+    pub fn next_stmt(&mut self) {
+        match self.tokenizer.get_current_token() {
+            Token::NEWLINE => (),
+            Token::EOF => {
+                self.current_stmt = ASTStmt::End;
+            }
+            Token::NOT
+            | Token::PLUS
+            | Token::MINUS
+            | Token::TILDE
+            | Token::LPAREN
+            | Token::LBRACE
+            | Token::LBRACKET
+            | Token::ID(_)
+            | Token::INT(_)
+            | Token::FLOAT(_)
+            | Token::STRING(_)
+            | Token::NONE
+            | Token::TRUE
+            | Token::FALSE
+            | Token::DEL
+            | Token::PASS
+            | Token::BREAK
+            | Token::CONTINUE
+            | Token::RETURN
+            | Token::GLOBAL
+            | Token::IF
+            | Token::WHILE
+            | Token::FOR
+            | Token::DEF => {
+                self.current_stmt = self.parse_stmt();
+            }
+            _ => errors::unexpected_token(&self),
+        };
+    }
+
+    // independent of next_stmt. emit AST and ends
     pub fn parse(&mut self) -> AST {
         let mut tree: Vec<ASTStmt> = Vec::new();
         self.tokenizer.next_token();

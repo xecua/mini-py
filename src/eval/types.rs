@@ -56,6 +56,7 @@ pub enum StmtResult {
     Continue,
     Break,
     Next,
+    End,
 }
 
 impl py_val {
