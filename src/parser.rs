@@ -5,7 +5,6 @@
 // (次のトークンでfirst setに含まれないとして弾く)
 
 use crate::ast::*;
-use crate::errors;
 use crate::token::Token;
 use crate::tokenizer::Tokenizer;
 use ordered_float::OrderedFloat;
@@ -70,7 +69,7 @@ impl Parser {
             | Token::DEF => {
                 self.current_stmt = self.parse_stmt();
             }
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
     }
 
@@ -110,7 +109,7 @@ impl Parser {
                 | Token::WHILE
                 | Token::FOR
                 | Token::DEF => tree.push(self.parse_stmt()),
-                _ => errors::unexpected_token(&self),
+                _ => self.error(format!("SyntaxError: unexpected token")),
             };
         }
         tree
@@ -139,7 +138,7 @@ impl Parser {
             | Token::CONTINUE
             | Token::RETURN
             | Token::GLOBAL => self.parse_simple_stmt(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         }
     }
 
@@ -149,7 +148,7 @@ impl Parser {
             Token::WHILE => self.parse_while_stmt(),
             Token::FOR => self.parse_for_stmt(),
             Token::DEF => self.parse_funcdef(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         }
     }
 
@@ -173,7 +172,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_test(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         self.eat(&Token::COLON);
         let body = match self.tokenizer.get_current_token() {
@@ -198,7 +197,7 @@ impl Parser {
             | Token::RETURN
             | Token::GLOBAL
             | Token::NEWLINE => self.parse_suite(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         let orelse: Vec<ASTStmt> = match self.tokenizer.get_current_token() {
             Token::ELIF => {
@@ -219,7 +218,7 @@ impl Parser {
                     | Token::NONE
                     | Token::TRUE
                     | Token::FALSE => vec![self.parse_if_stmt(true)],
-                    _ => errors::unexpected_token(&self),
+                    _ => self.error(format!("SyntaxError: unexpected token")),
                 }
             }
             Token::ELSE => {
@@ -248,7 +247,7 @@ impl Parser {
                     | Token::RETURN
                     | Token::GLOBAL
                     | Token::NEWLINE => self.parse_suite(),
-                    _ => errors::unexpected_token(&self),
+                    _ => self.error(format!("SyntaxError: unexpected token")),
                 }
             }
             _ => Vec::new(), // 特に何もしない
@@ -278,7 +277,7 @@ impl Parser {
             | Token::CONTINUE
             | Token::RETURN
             | Token::GLOBAL => self.parse_small_stmt(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         // 最後の改行の省略を許容
         if *self.tokenizer.get_current_token() != Token::EOF {
@@ -303,7 +302,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_or_test(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         // ternary operator
         if *self.tokenizer.get_current_token() == Token::IF {
@@ -323,7 +322,7 @@ impl Parser {
                 | Token::NONE
                 | Token::TRUE
                 | Token::FALSE => self.parse_or_test(),
-                _ => errors::unexpected_token(&self),
+                _ => self.error(format!("SyntaxError: unexpected token")),
             };
             self.eat(&Token::ELSE);
             let orelse = match self.tokenizer.get_current_token() {
@@ -341,7 +340,7 @@ impl Parser {
                 | Token::NONE
                 | Token::TRUE
                 | Token::FALSE => self.parse_test(),
-                _ => errors::unexpected_token(&self),
+                _ => self.error(format!("SyntaxError: unexpected token")),
             };
             ASTExpr::IfExp(Box::new(test), Box::new(body), Box::new(orelse))
         } else {
@@ -384,7 +383,7 @@ impl Parser {
                             stmt.push(self.parse_stmt());
                         }
                         Token::DEDENT => break,
-                        _ => errors::unexpected_token(&self),
+                        _ => self.error(format!("SyntaxError: unexpected token")),
                     };
                 }
                 self.eat(&Token::DEDENT);
@@ -410,7 +409,7 @@ impl Parser {
             | Token::CONTINUE
             | Token::RETURN
             | Token::GLOBAL => vec![self.parse_small_stmt()],
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         }
     }
 
@@ -431,7 +430,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_test(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         self.eat(&Token::COLON);
         let body = match self.tokenizer.get_current_token() {
@@ -456,7 +455,7 @@ impl Parser {
             | Token::RETURN
             | Token::GLOBAL
             | Token::NEWLINE => self.parse_suite(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         ASTStmt::While(test, body)
     }
@@ -484,7 +483,7 @@ impl Parser {
                     ASTExpr::Tuple(exprlist)
                 }
             }
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         self.eat(&Token::IN);
         let iter = match self.tokenizer.get_current_token() {
@@ -502,7 +501,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_testlist(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         self.eat(&Token::COLON);
         let body = match self.tokenizer.get_current_token() {
@@ -527,7 +526,7 @@ impl Parser {
             | Token::RETURN
             | Token::GLOBAL
             | Token::NEWLINE => self.parse_suite(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         ASTStmt::For(target, iter, body)
     }
@@ -537,7 +536,7 @@ impl Parser {
         let name = self.eat_id();
         let arguments = match self.tokenizer.get_current_token() {
             Token::LPAREN => self.parse_parameters(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         self.eat(&Token::COLON);
         let body = match self.tokenizer.get_current_token() {
@@ -562,7 +561,7 @@ impl Parser {
             | Token::RETURN
             | Token::GLOBAL
             | Token::NEWLINE => self.parse_suite(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         ASTStmt::FuncDef(name, arguments, body)
     }
@@ -587,7 +586,7 @@ impl Parser {
             Token::PASS => self.parse_pass_stmt(),
             Token::BREAK | Token::CONTINUE | Token::RETURN => self.parse_flow_stmt(),
             Token::GLOBAL => self.parse_global_stmt(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         }
     }
 
@@ -608,7 +607,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_and_test(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         });
         while *self.tokenizer.get_current_token() == Token::OR {
             self.eat(&Token::OR);
@@ -627,7 +626,7 @@ impl Parser {
                 | Token::NONE
                 | Token::TRUE
                 | Token::FALSE => self.parse_and_test(),
-                _ => errors::unexpected_token(&self),
+                _ => self.error(format!("SyntaxError: unexpected token")),
             });
         }
         if and_test.len() == 1 {
@@ -653,7 +652,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_expr(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         });
         while *self.tokenizer.get_current_token() == Token::COMMA {
             self.eat(&Token::COMMA);
@@ -694,7 +693,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_test(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         });
         while *self.tokenizer.get_current_token() == Token::COMMA {
             self.eat(&Token::COMMA);
@@ -728,7 +727,7 @@ impl Parser {
         let typedargslist = match self.tokenizer.get_current_token() {
             Token::ID(_) => self.parse_typedargslist(),
             Token::RPAREN => ASTArguments::new(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         self.eat(&Token::RPAREN);
         typedargslist
@@ -750,7 +749,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => vec![self.parse_testlist_star_expr()],
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         if *self.tokenizer.get_current_token() == Token::EQ {
             self.eat(&Token::EQ);
@@ -769,7 +768,7 @@ impl Parser {
                 | Token::NONE
                 | Token::TRUE
                 | Token::FALSE => self.parse_testlist_star_expr(),
-                _ => errors::unexpected_token(&self),
+                _ => self.error(format!("SyntaxError: unexpected token")),
             };
             while *self.tokenizer.get_current_token() == Token::EQ {
                 testlist_star_expr.push(tmp);
@@ -789,7 +788,7 @@ impl Parser {
                     | Token::NONE
                     | Token::TRUE
                     | Token::FALSE => self.parse_testlist_star_expr(),
-                    _ => errors::unexpected_token(&self),
+                    _ => self.error(format!("SyntaxError: unexpected token")),
                 };
             }
             ASTStmt::Assign(testlist_star_expr, tmp)
@@ -814,7 +813,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_exprlist(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         })
     }
 
@@ -828,7 +827,7 @@ impl Parser {
             Token::BREAK => self.parse_break_stmt(),
             Token::CONTINUE => self.parse_continue_stmt(),
             Token::RETURN => self.parse_return_stmt(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         }
     }
 
@@ -837,7 +836,7 @@ impl Parser {
         let mut name: Vec<String> = Vec::new();
         name.push(match self.tokenizer.get_current_token() {
             Token::ID(name) => name.to_owned(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         });
         while *self.tokenizer.get_current_token() == Token::COMMA {
             self.eat(&Token::COMMA);
@@ -866,7 +865,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_not_test(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         });
         while *self.tokenizer.get_current_token() == Token::AND {
             self.eat(&Token::AND);
@@ -885,7 +884,7 @@ impl Parser {
                 | Token::NONE
                 | Token::TRUE
                 | Token::FALSE => self.parse_not_test(),
-                _ => errors::unexpected_token(&self),
+                _ => self.error(format!("SyntaxError: unexpected token")),
             });
         }
         if not_test.len() == 1 {
@@ -910,7 +909,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_xor_expr(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         if *self.tokenizer.get_current_token() == Token::BAR {
             self.eat(&Token::BAR);
@@ -928,7 +927,7 @@ impl Parser {
                 | Token::NONE
                 | Token::TRUE
                 | Token::FALSE => self.parse_expr(),
-                _ => errors::unexpected_token(&self),
+                _ => self.error(format!("SyntaxError: unexpected token")),
             };
             ASTExpr::BinOp(Box::new(left), ASTOperator::BitOr, Box::new(right))
         } else {
@@ -965,7 +964,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_test(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         }];
         while *self.tokenizer.get_current_token() == Token::COMMA {
             self.eat(&Token::COMMA);
@@ -1041,7 +1040,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_and_expr(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         if *self.tokenizer.get_current_token() == Token::XOR {
             self.eat(&Token::XOR);
@@ -1059,7 +1058,7 @@ impl Parser {
                 | Token::NONE
                 | Token::TRUE
                 | Token::FALSE => self.parse_xor_expr(),
-                _ => errors::unexpected_token(&self),
+                _ => self.error(format!("SyntaxError: unexpected token")),
             };
             ASTExpr::BinOp(Box::new(left), ASTOperator::BitXor, Box::new(right))
         } else {
@@ -1088,7 +1087,7 @@ impl Parser {
                         | Token::NONE
                         | Token::TRUE
                         | Token::FALSE => Box::new(self.parse_not_test()),
-                        _ => errors::unexpected_token(&self),
+                        _ => self.error(format!("SyntaxError: unexpected token")),
                     },
                 )
             }
@@ -1105,7 +1104,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_comparison(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         }
     }
 
@@ -1124,7 +1123,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_shift_expr(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         if *self.tokenizer.get_current_token() == Token::AMP {
             self.eat(&Token::AMP);
@@ -1142,7 +1141,7 @@ impl Parser {
                 | Token::NONE
                 | Token::TRUE
                 | Token::FALSE => self.parse_and_expr(),
-                _ => errors::unexpected_token(&self),
+                _ => self.error(format!("SyntaxError: unexpected token")),
             };
             ASTExpr::BinOp(Box::new(left), ASTOperator::BitAnd, Box::new(right))
         } else {
@@ -1165,7 +1164,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_arith_expr(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         match self.tokenizer.get_current_token() {
             t @ Token::LSHIFT | t @ Token::RSHIFT => {
@@ -1185,7 +1184,7 @@ impl Parser {
                     | Token::NONE
                     | Token::TRUE
                     | Token::FALSE => self.parse_shift_expr(),
-                    _ => errors::unexpected_token(&self),
+                    _ => self.error(format!("SyntaxError: unexpected token")),
                 };
                 ASTExpr::BinOp(
                     Box::new(left),
@@ -1216,7 +1215,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_term(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         match self.tokenizer.get_current_token() {
             t @ Token::PLUS | t @ Token::MINUS => {
@@ -1236,7 +1235,7 @@ impl Parser {
                     | Token::NONE
                     | Token::TRUE
                     | Token::FALSE => self.parse_arith_expr(),
-                    _ => errors::unexpected_token(&self),
+                    _ => self.error(format!("SyntaxError: unexpected token")),
                 };
                 ASTExpr::BinOp(
                     Box::new(left),
@@ -1267,7 +1266,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_expr(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         let mut ops: Vec<ASTCmpOp> = Vec::new();
         let mut comparators: Vec<ASTExpr> = Vec::new();
@@ -1297,7 +1296,7 @@ impl Parser {
                         | Token::NONE
                         | Token::TRUE
                         | Token::FALSE => self.parse_comparison(),
-                        _ => errors::unexpected_token(&self),
+                        _ => self.error(format!("SyntaxError: unexpected token")),
                     });
                 }
                 _ => break,
@@ -1326,7 +1325,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_factor(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         match self.tokenizer.get_current_token() {
             t @ Token::MUL | t @ Token::DIV | t @ Token::MOD => {
@@ -1346,7 +1345,7 @@ impl Parser {
                     | Token::NONE
                     | Token::TRUE
                     | Token::FALSE => self.parse_term(),
-                    _ => errors::unexpected_token(&self),
+                    _ => self.error(format!("SyntaxError: unexpected token")),
                 };
                 ASTExpr::BinOp(
                     Box::new(left),
@@ -1354,7 +1353,7 @@ impl Parser {
                         Token::MUL => ASTOperator::Mul,
                         Token::DIV => ASTOperator::Div,
                         Token::MOD => ASTOperator::Mod,
-                        _ => errors::unexpected_token(&self),
+                        _ => self.error(format!("SyntaxError: unexpected token")),
                     },
                     Box::new(right),
                 )
@@ -1408,7 +1407,7 @@ impl Parser {
                     _ => ASTCmpOp::Is,
                 }
             }
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         }
     }
 
@@ -1431,14 +1430,14 @@ impl Parser {
                     | Token::NONE
                     | Token::TRUE
                     | Token::FALSE => self.parse_factor(),
-                    _ => errors::unexpected_token(&self),
+                    _ => self.error(format!("SyntaxError: unexpected token")),
                 };
                 ASTExpr::UnaryOp(
                     match t {
                         Token::PLUS => ASTUnaryOp::UAdd,
                         Token::MINUS => ASTUnaryOp::USub,
                         Token::TILDE => ASTUnaryOp::Invert,
-                        _ => errors::unexpected_token(&self),
+                        _ => self.error(format!("SyntaxError: unexpected token")),
                     },
                     Box::new(operand),
                 )
@@ -1453,7 +1452,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_atom_expr(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         }
     }
 
@@ -1469,7 +1468,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_atom(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         // trailerはCallかSubscriptで、atomや直前のtrailerの結果を包んでいく形になる
         loop {
@@ -1581,7 +1580,7 @@ impl Parser {
                 self.eat(&Token::FALSE);
                 ASTExpr::Constant(ASTConstant::False)
             }
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         }
     }
 
@@ -1694,7 +1693,7 @@ impl Parser {
                 };
                 ASTSlice::Slice(None, upper, step)
             }
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         }
     }
 
@@ -1714,7 +1713,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_test(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         match *self.tokenizer.get_current_token() {
             Token::COLON => {
@@ -1737,7 +1736,7 @@ impl Parser {
                     | Token::NONE
                     | Token::TRUE
                     | Token::FALSE => self.parse_test(),
-                    _ => errors::unexpected_token(&self),
+                    _ => self.error(format!("SyntaxError: unexpected token")),
                 });
                 while *self.tokenizer.get_current_token() == Token::COLON {
                     self.eat(&Token::COLON);
@@ -1773,7 +1772,7 @@ impl Parser {
                         | Token::NONE
                         | Token::TRUE
                         | Token::FALSE => self.parse_test(),
-                        _ => errors::unexpected_token(&self),
+                        _ => self.error(format!("SyntaxError: unexpected token")),
                     });
                 }
                 ASTExpr::Dict(keys, values)
@@ -1828,7 +1827,7 @@ impl Parser {
                 | Token::NONE
                 | Token::TRUE
                 | Token::FALSE => self.parse_test(),
-                _ => errors::unexpected_token(&self),
+                _ => self.error(format!("SyntaxError: unexpected token")),
             });
         }
         while *self.tokenizer.get_current_token() == Token::COMMA {
@@ -1872,7 +1871,7 @@ impl Parser {
             | Token::NONE
             | Token::TRUE
             | Token::FALSE => self.parse_test(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         }];
         while *self.tokenizer.get_current_token() == Token::COMMA {
             self.eat(&Token::COMMA);
@@ -1902,7 +1901,7 @@ impl Parser {
 
     fn eat(&mut self, expected: &Token) {
         if self.tokenizer.get_current_token() != expected {
-            errors::unexpected_token(&self);
+            self.error(format!("SyntaxError: unexpected token"));
         } else {
             self.tokenizer.next_token();
         }
@@ -1911,7 +1910,7 @@ impl Parser {
     fn eat_id(&mut self) -> String {
         let name = match self.tokenizer.get_current_token() {
             Token::ID(name) => name.to_owned(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         self.tokenizer.next_token();
         name
@@ -1920,7 +1919,7 @@ impl Parser {
     fn eat_int(&mut self) -> i64 {
         let num = *(match self.tokenizer.get_current_token() {
             Token::INT(num) => num,
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         });
         self.tokenizer.next_token();
         num
@@ -1929,7 +1928,7 @@ impl Parser {
     fn eat_float(&mut self) -> f64 {
         let num = *(match self.tokenizer.get_current_token() {
             Token::FLOAT(num) => num,
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         });
         self.tokenizer.next_token();
         num
@@ -1938,7 +1937,7 @@ impl Parser {
     fn eat_str(&mut self) -> String {
         let name = match self.tokenizer.get_current_token() {
             Token::STRING(name) => name.to_owned(),
-            _ => errors::unexpected_token(&self),
+            _ => self.error(format!("SyntaxError: unexpected token")),
         };
         self.tokenizer.next_token();
         name
@@ -1970,5 +1969,17 @@ impl Parser {
 
     pub fn get_current_line_content(&self) -> &String {
         self.tokenizer.get_current_line_content()
+    }
+
+    fn error(&self, message: String) -> ! {
+        eprintln!(
+            "File {}, line {}\n{}\n{}\n{}",
+            self.tokenizer.get_file_name(),
+            self.tokenizer.get_current_line(),
+            self.tokenizer.get_current_line_content(),
+            " ".repeat(self.tokenizer.get_current_line_content().len()),
+            message
+        );
+        std::process::exit(1);
     }
 }

@@ -3,18 +3,22 @@ use std::iter::Iterator;
 use std::rc::Rc;
 
 use crate::ast::*;
-use crate::errors;
 use crate::eval::{native_func::*, types::*, utils::*};
 use crate::parser::Parser;
 
 // None appears only in local environment and indicates it is global variable
 type LocalEnv = Option<HashMap<String, Option<py_val_t>>>;
 type GlobalEnv = HashMap<String, py_val_t>;
-type StackTrace = Vec<String>;
+struct BackTraceItem {
+    file_name: String,
+    function_name: String,
+    position: usize,
+}
+type BackTrace = Vec<BackTraceItem>;
 
 pub struct Evaluator {
     global_env: GlobalEnv,
-    back_trace: StackTrace,
+    back_trace: BackTrace,
     parser: Parser,
 }
 
@@ -90,7 +94,7 @@ impl Evaluator {
         );
         let mut evaluator = Evaluator {
             global_env: global_env,
-            back_trace: StackTrace::new(),
+            back_trace: BackTrace::new(),
             parser: Parser::new(&format!("{}/src/std/init.py", env!("PWD")))?,
         };
         evaluator.eval();
@@ -362,9 +366,18 @@ impl Evaluator {
                     .map(|arg| self.eval_expr(arg, local_env))
                     .collect();
                 if native_func.arity != args.len() {
-                    errors::type_error();
+                    self.error(format!(
+                        "TypeError: {}() takes {} arguments but {} were given",
+                        native_func.name,
+                        native_func.arity,
+                        args.len()
+                    ));
                 }
-                self.back_trace.push(native_func.name.clone());
+                self.back_trace.push(BackTraceItem {
+                    file_name: self.parser.get_file_name().clone(),
+                    function_name: native_func.name.clone(),
+                    position: self.parser.get_current_line(),
+                });
                 let res = (native_func.body)(args);
                 self.back_trace.pop();
                 res
@@ -375,11 +388,20 @@ impl Evaluator {
                     .map(|arg| self.eval_expr(arg, local_env))
                     .collect();
                 if py_func.args.len() != args.len() {
-                    errors::type_error();
+                    self.error(format!(
+                        "TypeError: {}() takes {} arguments but {} were given",
+                        py_func.name,
+                        py_func.args.len(),
+                        args.len()
+                    ));
                 }
 
                 // prepare for function call
-                self.back_trace.push(py_func.name.clone());
+                self.back_trace.push(BackTraceItem {
+                    file_name: self.parser.get_file_name().clone(),
+                    function_name: py_func.name.clone(),
+                    position: self.parser.get_current_line(),
+                });
                 let mut new_local_env: LocalEnv = Some(
                     py_func
                         .args
@@ -432,14 +454,34 @@ impl Evaluator {
             } else {
                 match self.global_env.get(key) {
                     Some(v) => v.clone(), // implicit global variable
-                    None => errors::name_error(key),
+                    None => self.error(format!("NameError: {} is not defined", key)),
                 }
             }
         } else {
             match self.global_env.get(key) {
                 Some(v) => v.clone(), // implicit global variable
-                None => errors::name_error(key),
+                None => self.error(format!("NameError: {} is not defined", key)),
             }
         }
+    }
+
+    fn error(&self, message: String) -> ! {
+        eprint!("TraceBack");
+        for trace in self.back_trace.iter() {
+            eprintln!("File {}, line {}, in {}",
+                trace.file_name,
+                trace.position,
+                trace.function_name
+            );
+        }
+        eprintln!(
+            "File {}, line {}\n{}\n{}\n{}",
+            self.parser.get_file_name(),
+            self.parser.get_current_line(),
+            self.parser.get_current_line_content(),
+            " ".repeat(self.parser.get_current_line_content().len()),
+            message
+        );
+        std::process::exit(1);
     }
 }

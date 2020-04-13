@@ -1,5 +1,4 @@
 use crate::char_stream::CharStream;
-use crate::errors;
 use crate::token::Token;
 
 // 字句解析器
@@ -81,8 +80,9 @@ impl Tokenizer {
                 self.indent_stack.pop();
                 if let Some(last) = self.indent_stack.last() {
                     if self.leading_space > *last {
-                        // IndentationError: unindent does not match any outer indentation level
-                        errors::wrong_indent(&self);
+                        self.error(format!(
+                            "IndentationError: unindent does not match any outer indentation level"
+                        ));
                     }
                 }
                 self.current_token = Token::DEDENT;
@@ -113,7 +113,7 @@ impl Tokenizer {
                 // !=
                 self.char_stream.next_char();
                 if self.char_stream.get_current_char() != Some('=') {
-                    errors::invalid_syntax(&self);
+                    self.error(format!("SyntaxError: unexpected character"))
                 }
                 self.char_stream.next_char();
                 Token::NEQ
@@ -316,8 +316,7 @@ impl Tokenizer {
         // integer
         else {
             if self.token_buf.get(0..1).unwrap() == "0" && self.token_buf.len() > 1 {
-                // SyntaxError: invalid token
-                errors::invalid_token(&self);
+                self.error(format!("SyntaxError: invalid token"))
             }
             Token::INT(self.token_buf.parse().unwrap())
         }
@@ -341,8 +340,7 @@ impl Tokenizer {
                 }
                 self.token_buf.push(c);
             } else {
-                // SyntaxError: EOL while scanning string literal
-                errors::eol_while_string(&self);
+                self.error(format!("SyntaxError: EOL while scanning string literal"));
             }
         }
         Token::STRING(self.token_buf.clone())
@@ -387,5 +385,17 @@ impl Tokenizer {
             "False" => Token::FALSE,
             _ => Token::ID(self.token_buf.clone()),
         }
+    }
+
+    fn error(&self, message: String) -> ! {
+        eprintln!(
+            "File {}, line {}\n{}\n{}\n{}",
+            self.char_stream.get_file_name(),
+            self.char_stream.get_current_line(),
+            self.char_stream.get_current_line_content(),
+            " ".repeat(self.char_stream.get_current_line_content().len()),
+            message
+        );
+        std::process::exit(1);
     }
 }
