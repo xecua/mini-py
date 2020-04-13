@@ -466,7 +466,7 @@ impl Evaluator {
     }
 
     fn error(&self, message: String) -> ! {
-        eprint!("TraceBack");
+        eprintln!("TraceBack");
         for trace in self.back_trace.iter() {
             eprintln!("File {}, line {}, in {}",
                 trace.file_name,
